@@ -85,17 +85,28 @@ func (app *Application) PrintInfo(format string, args ...interface{}) error {
 }
 
 func (app *Application) PrintObject(v interface{}) error {
-	return app.writeObject(app, v)
+	return PrintObject(app.CobraCommand, v)
 }
 
-func (app *Application) writeObject(w io.Writer, v interface{}) error {
-	if *app.MachineFriendly {
-		prettyFlagValue := !GetJSONNoPrettyFlag(app.CobraCommand)
-		jmesQueryPathFlagValue := GetJSONQueryFlag(app.CobraCommand)
-		return WriteJSON(w, v, prettyFlagValue, jmesQueryPathFlagValue)
+// func (app *Application) writeObject(w io.Writer, v interface{}) error {
+// 	if *app.MachineFriendly {
+// 		prettyFlagValue := !GetJSONNoPrettyFlag(app.CobraCommand)
+// 		jmesQueryPathFlagValue := GetJSONQueryFlag(app.CobraCommand)
+// 		return WriteJSON(w, v, prettyFlagValue, jmesQueryPathFlagValue)
+// 	}
+
+// 	return WriteTable(w, v)
+// }
+
+func PrintObject(cmd *cobra.Command, v interface{}) error {
+	machineFriendlyFlagValue := GetMachineFriendlyFlag(cmd)
+	if machineFriendlyFlagValue {
+		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
+		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
+		return WriteJSON(cmd.Root().OutOrStdout(), v, prettyFlagValue, jmesQueryPathFlagValue)
 	}
 
-	return WriteTable(w, v)
+	return WriteTable(cmd.Root().OutOrStdout(), v)
 }
 
 func (app *Application) Write(b []byte) (int, error) {
@@ -187,11 +198,18 @@ func Build(app *Application) *cobra.Command {
 		rootCmd.PersistentPostRunE = app.Shutdown
 	}
 
-	rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, "machine-friendly", false, "--machine-friendly to output JSON results and hide all the info messages")
+	rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
 
 	app.currentCommand = rootCmd
 	app.CobraCommand = rootCmd
 	return rootCmd
+}
+
+const machineFriendlyFlagKey = "machine-friendly"
+
+func GetMachineFriendlyFlag(cmd *cobra.Command) bool {
+	b, _ := cmd.Flags().GetBool(machineFriendlyFlagKey)
+	return b
 }
 
 /* no...

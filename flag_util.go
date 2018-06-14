@@ -76,7 +76,7 @@ type runnerValidationResult struct {
 	FirstInputAsCommand   bool
 	FirstInputAsArguments bool
 
-	SecondInputAsArguments bool
+	LastInputAsArguments bool
 
 	NoInput bool
 
@@ -84,9 +84,7 @@ type runnerValidationResult struct {
 	FirstOutputAsObject bool
 	FirstOutputAsString bool
 
-	SecondOutputAsError  bool
-	SecondOutputAsObject bool
-	SecondOutputAsString bool
+	SecondOutputAsError bool
 
 	NoOutput bool
 }
@@ -108,19 +106,25 @@ func validateRunnerFn(fn reflect.Value, set *pflag.FlagSet) (runnerValidationRes
 			} else if ftyp == argsTyp {
 				r.FirstInputAsArguments = true
 			} else {
-				return r, fmt.Errorf("runnerFn input arguments and flags not matched: first input argument expected to be a kind of *Command or []string")
+				if got > 1 && expected > 1 {
+					if ltyp := typ.In(got - 1); ltyp == argsTyp {
+						r.LastInputAsArguments = true
+					}
+				} else {
+					return r, fmt.Errorf("runnerFn input arguments[%d] and flags[%d] not matched: first input argument expected to be a kind of *Command or []string", got, expected)
+				}
 			}
 		}
 
-		if got == expected+2 {
-			if ftyp := typ.In(1); ftyp == argsTyp {
-				r.SecondInputAsArguments = true
+		if got > expected+1 {
+			if ltyp := typ.In(got - 1); ltyp == argsTyp {
+				r.LastInputAsArguments = true
 			} else {
-				return r, fmt.Errorf("runnerFn input arguments and flags not matched: second input argument expected to be a kind of []string")
+				return r, fmt.Errorf("runnerFn input arguments and flags not matched: last input argument expected to be a kind of []string")
 			}
 		}
 
-		if !r.FirstInputAsArguments && !r.FirstInputAsCommand {
+		if !r.FirstInputAsArguments && !r.FirstInputAsCommand && !r.LastInputAsArguments {
 			return r, fmt.Errorf("runnerFn input arguments and flags not matched, expected %d but got %d input arguments", expected, got)
 		}
 	} else if got == 0 {
@@ -150,10 +154,8 @@ func validateRunnerFn(fn reflect.Value, set *pflag.FlagSet) (runnerValidationRes
 		// check second output argument.
 		if ftyp := typ.Out(1); ftyp == errorTyp {
 			r.SecondOutputAsError = true
-		} else if ftyp.Kind() == reflect.String {
-			r.SecondOutputAsString = true
-		} else if ftyp.Kind() == reflect.Interface {
-			r.SecondOutputAsObject = true
+		} else {
+			return r, fmt.Errorf("runnerFn second output argument is not a type of error")
 		}
 	}
 
@@ -229,21 +231,34 @@ func getFlagValue(name string, set *pflag.FlagSet) (flagValue reflect.Value) {
 	return
 }
 
-func ackRunnerError(out []reflect.Value, rv runnerValidationResult) error {
+func ackRunnerError(cmd *cobra.Command, out []reflect.Value, rv runnerValidationResult) error {
 	if rv.NoOutput || len(out) == 0 {
 		return nil
 	}
 
-	if rv.FirstOutputAsError {
+	if rv.FirstOutputAsError || rv.FirstOutputAsString || rv.FirstOutputAsObject {
 		val := out[0]
 		if val.IsNil() || !val.CanInterface() {
 			return nil
 		}
 
-		return val.Interface().(error)
+		if rv.FirstOutputAsError {
+			return val.Interface().(error) // if the error was nil, it never goes here.
+		}
+
+		if rv.FirstOutputAsString {
+			if err := PrintInfo(cmd, val.Interface().(string)); err != nil {
+				return err
+			}
+		}
+
+		if err := PrintObject(cmd, val.Interface()); err != nil {
+			return err
+		}
 	}
 
-	if rv.SecondOutputAsError && len(out) > 0 {
+	// has second output.
+	if len(out) > 1 && rv.SecondOutputAsError {
 		val := out[1]
 		if val.IsNil() || !val.CanInterface() {
 			return nil
@@ -257,8 +272,9 @@ func ackRunnerError(out []reflect.Value, rv runnerValidationResult) error {
 
 var emptyIn = []reflect.Value{}
 
-// resolveFlagsFromFunc collects the flags from the dynamic runner, give priority to the func instead of the registered flags, we collect the local flags.
-func resolveFlagsFromFunc(runnerFn interface{}, set *pflag.FlagSet) (func(*cobra.Command, []string) error, error) {
+// RunE collects the flags from the dynamic runner, give priority to the func instead of the registered flags, we collect the local flags.
+// And returns a cobra-compatible runner function.
+func RunE(runnerFn interface{}, set *pflag.FlagSet) (func(*cobra.Command, []string) error, error) {
 	if runnerFn == nil {
 		return nil, fmt.Errorf("runnerFn is nil")
 	}
@@ -272,7 +288,7 @@ func resolveFlagsFromFunc(runnerFn interface{}, set *pflag.FlagSet) (func(*cobra
 	if rv.NoInput {
 		runner := func(cmd *cobra.Command, args []string) error {
 			out := fn.Call(emptyIn)
-			return ackRunnerError(out, rv)
+			return ackRunnerError(cmd, out, rv)
 		}
 
 		return runner, nil
@@ -283,7 +299,7 @@ func resolveFlagsFromFunc(runnerFn interface{}, set *pflag.FlagSet) (func(*cobra
 
 	in := make([]reflect.Value, n, n)
 	i := 0
-	if firstIsCommand {
+	if rv.FirstInputAsCommand || rv.FirstInputAsArguments {
 		i = 1
 	}
 
@@ -309,18 +325,22 @@ func resolveFlagsFromFunc(runnerFn interface{}, set *pflag.FlagSet) (func(*cobra
 	}
 
 	runner := func(cmd *cobra.Command, args []string) error {
-		if firstIsCommand {
-
+		if rv.FirstInputAsCommand {
+			in[0] = reflect.ValueOf(cmd)
+		} else if rv.FirstInputAsArguments {
+			in[0] = reflect.ValueOf(args)
 		}
-		fn.Call(in)
+
+		if rv.LastInputAsArguments {
+			in[i] = reflect.ValueOf(args)
+		}
+
+		return ackRunnerError(cmd, fn.Call(in), rv)
 	}
 
 	return runner, nil
 }
 
-// This is a self-crafted hack to convert custom types to a compatible cobra flag.
-// Do NOT touch it.
-//
 // Supported custom types underline are: strings, ints and booleans only.
 type FlagVar struct {
 	value reflect.Value
