@@ -1,4 +1,4 @@
-/*Package bite provides a toolbox for CLI cobra-based applications.
+/*Package bite is a toolbox for CLI cobra-based applications.
 
 Example code:
 	package main

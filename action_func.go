@@ -203,6 +203,10 @@ func bindActionInputArguments(typ reflect.Type, set *pflag.FlagSet, inputInfo ac
 	return in, err
 }
 
+func isGoodValue(val reflect.Value) bool {
+	return (val.Kind() == reflect.Ptr && !val.IsNil()) || val.CanInterface()
+}
+
 func handleActionResult(cmd *cobra.Command, fn reflect.Value, in []reflect.Value, desc actionDescriptionOutput) error {
 	if desc.Empty {
 		return nil
@@ -215,29 +219,27 @@ func handleActionResult(cmd *cobra.Command, fn reflect.Value, in []reflect.Value
 
 	if desc.FirstAsError || desc.FirstAsString || desc.FirstAsObject {
 		val := out[0]
-		if val.IsNil() || !val.CanInterface() {
+		if !isGoodValue(val) {
 			return nil
 		}
 
 		if desc.FirstAsError {
 			return val.Interface().(error) // if the error was nil, it never goes here.
-		}
-
-		if desc.FirstAsString {
+		} else if desc.FirstAsString {
 			if err := PrintInfo(cmd, val.Interface().(string)); err != nil {
 				return err
 			}
-		}
-
-		if err := PrintObject(cmd, val.Interface()); err != nil {
-			return err
+		} else {
+			if err := PrintObject(cmd, val.Interface()); err != nil {
+				return err
+			}
 		}
 	}
 
 	// has second output.
 	if len(out) > 1 && desc.SecondAsError {
 		val := out[1]
-		if val.IsNil() || !val.CanInterface() {
+		if !isGoodValue(val) {
 			return nil
 		}
 

@@ -46,8 +46,9 @@ func (h HelpTemplate) String() string {
 }
 
 type Application struct {
-	Name    string
-	Version string
+	Name        string
+	Version     string
+	Description string
 
 	HelpTemplate fmt.Stringer
 	ShowSpinner  bool
@@ -160,6 +161,7 @@ func Build(app *Application) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Version:                    app.Version,
 		Use:                        fmt.Sprintf("%s [command] [flags]", app.Name),
+		Short:                      app.Description,
 		SilenceUsage:               true,
 		SilenceErrors:              true,
 		TraverseChildren:           true,

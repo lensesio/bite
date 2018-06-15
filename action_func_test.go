@@ -1,8 +1,11 @@
 package bite
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -80,4 +83,40 @@ func TestActionDescription(t *testing.T) {
 			t.Fatalf("[%d] output description expected to be:\n%#+v\n but got:\n%#+v", i, tt.out, out)
 		}
 	}
+}
+
+type noOpWriter struct{}
+
+func (w noOpWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func TestAction(t *testing.T) {
+	app := &Application{
+		Name:        "my-app",
+		Version:     "0.0.1",
+		Description: "My awesome app",
+	}
+
+	cmd := &Command{
+		Use:     "echo",
+		Example: "echo World!",
+		Action: func(args []string) string {
+			return fmt.Sprintf("Hello %s", strings.Join(args, " "))
+		},
+	}
+
+	cobraCommand := BuildCommand(app, cmd)
+	w := new(bytes.Buffer)
+	cobraCommand.SetOutput(w)
+
+	if err := cobraCommand.RunE(cobraCommand, []string{"World!"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if expected, got := "Hello World!", w.String(); expected != got {
+		t.Fatalf("expected output: '%s' but got: '%s'", expected, got)
+	}
+
+	w.Reset()
 }

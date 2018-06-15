@@ -10,15 +10,16 @@ import (
 type FlagSet = *pflag.FlagSet
 
 type Command struct {
-	App                  *Application
-	Use                  string
-	Aliases              []string
-	Short                string
-	Example              string
-	RunE                 interface{} // Can be Run, PrintObject, PrintInfo or func(flag1 string, flag2 int, flag3 string, flag4 bool, flag5 time.Duration) error { }.
-	Run                  func(*Command, []string) error
-	PrintObject          func(*Command, []string) (interface{}, error)
-	PrintInfo            func(*Command, []string) (string, error)
+	App     *Application
+	Use     string
+	Aliases []string
+	Short   string
+	Example string
+	// RunE                 interface{} // Can be Run, PrintObject, PrintInfo or func(flag1 string, flag2 int, flag3 string, flag4 bool, flag5 time.Duration) error { }.
+	// Run                  func(*Command, []string) error
+	// PrintObject          func(*Command, []string) (interface{}, error)
+	// PrintInfo            func(*Command, []string) (string, error)
+	Action               interface{}
 	CanPrintObject       bool
 	CanPrintInfo         bool
 	TryLoadFromFile      interface{} // ptr
@@ -57,6 +58,7 @@ func (cmd *Command) Name() string {
 	return strings.Split(cmd.Use, " ")[0]
 }
 
+/*
 func (cmd *Command) run(args []string) error {
 	if cmd.PrintObject != nil {
 		v, err := cmd.PrintObject(cmd, args)
@@ -82,9 +84,10 @@ func (cmd *Command) run(args []string) error {
 
 	return cmd.Run(cmd, args)
 }
+*/
 
 func (cmd *Command) hasRunner() bool {
-	return cmd.Run != nil || cmd.PrintObject != nil || cmd.PrintInfo != nil
+	return cmd.Action != nil // cmd.Run != nil || cmd.PrintObject != nil || cmd.PrintInfo != nil
 }
 
 // BuildCommand will build the bite command against an application, it tries to respect its `CobraCommand` values as well.
@@ -105,23 +108,13 @@ func BuildCommand(app *Application, cmd *Command) *cobra.Command {
 	cmd.CobraCommand.Short = cmd.Short
 	cmd.CobraCommand.Example = app.exampleText(cmd.Example)
 
-	if cmd.hasRunner() {
-		cmd.CobraCommand.RunE = func(c *cobra.Command, args []string) error {
-			if err := cmd.checkRequiredFlags(c); err != nil {
-				return err
-			}
-
-			return cmd.run(args)
-		}
-	}
-
 	cmd.flagset = NewFlagSet("bite-"+cmd.Name(), nil)
 
-	if cmd.CanPrintInfo || cmd.PrintInfo != nil {
+	if cmd.CanPrintInfo { // || cmd.PrintInfo != nil {
 		CanBeSilent(cmd.CobraCommand)
 	}
 
-	if cmd.CanPrintObject || cmd.PrintObject != nil {
+	if cmd.CanPrintObject { //|| cmd.PrintObject != nil {
 		CanPrintJSON(cmd.CobraCommand)
 	}
 
@@ -140,7 +133,23 @@ func BuildCommand(app *Application, cmd *Command) *cobra.Command {
 		cmd.TryLoadFromFile = cmd.parent.TryLoadFromFile
 	}
 
+	if cmd.hasRunner() {
+		// after the flags set.
+		run, err := makeAction(cmd.Action, cmd.CobraCommand.Flags())
+		if err != nil {
+			panic(err) // panic? I don't like this but keep it as it's so it can break on build time ASAP, should be changed to return (*cobra.Command, error) in the future.
+		}
+		cmd.CobraCommand.RunE = func(c *cobra.Command, args []string) error {
+			if err := cmd.checkRequiredFlags(c); err != nil {
+				return err
+			}
+
+			return run(c, args)
+		}
+	}
+
 	if cmd.TryLoadFromFile != nil {
+		// should be the last .RunE modifier.
 		ShouldTryLoadFile(cmd.CobraCommand, cmd.TryLoadFromFile)
 	}
 
