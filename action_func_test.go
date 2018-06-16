@@ -28,7 +28,7 @@ func TestActionDescription(t *testing.T) {
 	}{
 		{
 			args: args,
-			fn: func(string, int) error {
+			fn: func(string, int, bool) error { // strict, may "Strict" option for that(?).
 				return nil
 			},
 			out: actionDescriptionOutput{FirstAsError: true},

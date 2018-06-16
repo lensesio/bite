@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type HelpTemplate struct {
@@ -51,12 +52,16 @@ type Application struct {
 	Description string
 
 	HelpTemplate fmt.Stringer
-	ShowSpinner  bool
+	// ShowSpinner if true(default is false) and machine-friendly is false(default is true) then
+	// it waits via "visual" spinning before each command's job done.
+	ShowSpinner bool
+	// if true then the --machine-friendly flag will be added to the application and PrintObject will check for that.
+	DisableOutputFormatController bool
+	MachineFriendly               *bool
+	PersistentFlags               func(*pflag.FlagSet)
 
-	MachineFriendly *bool
-
-	Setup    func(*cobra.Command, []string) error
-	Shutdown func(*cobra.Command, []string) error
+	Setup    interface{} // func(*cobra.Command, []string) error
+	Shutdown interface{} // func(*cobra.Command, []string) error
 
 	commands       []*Command // commands should be builded and added on "Build" state or even after it, `AddCommand` will handle this.
 	currentCommand *cobra.Command
@@ -138,8 +143,8 @@ func (app *Application) Run(output io.Writer) error {
 	rootCmd := Build(app)
 	rootCmd.SetOutput(output)
 
-	if app.ShowSpinner {
-		ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
+	if app.ShowSpinner && !*app.MachineFriendly {
+		return ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
 	}
 
 	return ackError(app.FriendlyErrors, rootCmd.Execute())
@@ -162,10 +167,68 @@ func Build(app *Application) *cobra.Command {
 		Version:                    app.Version,
 		Use:                        fmt.Sprintf("%s [command] [flags]", app.Name),
 		Short:                      app.Description,
+		Long:                       app.Description,
 		SilenceUsage:               true,
 		SilenceErrors:              true,
 		TraverseChildren:           true,
 		SuggestionsMinimumDistance: 1,
+	}
+
+	app.MachineFriendly = new(bool)
+	if !app.DisableOutputFormatController {
+		rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
+	}
+
+	if app.PersistentFlags != nil {
+		app.PersistentFlags(rootCmd.PersistentFlags())
+	}
+
+	// var setup, shutdown func(*cobra.Command, []string) error
+
+	// if app.Setup != nil {
+	// 	fn, err := makeAction(app.Setup, rootCmd.Flags())
+	// 	if err != nil {
+	// 		panic(err) // TODO: remove panic but keep check before run.
+	// 	}
+
+	// 	setup = fn
+	// }
+
+	// if app.Shutdown != nil {
+	// 	fn, err := makeAction(app.Shutdown, rootCmd.Flags())
+	// 	if err != nil {
+	// 		panic(err) // TODO: remove panic but keep check before run.
+	// 	}
+
+	// 	shutdown = fn
+	// }
+
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		app.currentCommand = cmd // bind current command here.
+
+		if app.Setup != nil {
+			setup, err := makeAction(app.Setup, rootCmd.PersistentFlags())
+			if err != nil {
+				return err // TODO: find a way for build check.
+			}
+
+			return setup(cmd, args)
+		}
+
+		return nil
+	}
+
+	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
+		if app.Shutdown != nil {
+			shutdown, err := makeAction(app.Shutdown, cmd.Flags())
+			if err != nil {
+				return err
+			}
+
+			return shutdown(cmd, args)
+		}
+
+		return nil
 	}
 
 	if len(app.commands) > 0 {
@@ -182,25 +245,11 @@ func Build(app *Application) *cobra.Command {
 		rootCmd.Example = exampleText
 	}
 
-	if helpTmpl := app.HelpTemplate.String(); helpTmpl != "" {
-		rootCmd.SetVersionTemplate(helpTmpl)
-	}
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		app.currentCommand = cmd // bind current command here.
-
-		if app.Setup != nil {
-			return app.Setup(cmd, args)
+	if app.HelpTemplate != nil {
+		if helpTmpl := app.HelpTemplate.String(); helpTmpl != "" {
+			rootCmd.SetVersionTemplate(helpTmpl)
 		}
-
-		return nil
 	}
-
-	if app.Shutdown != nil {
-		rootCmd.PersistentPostRunE = app.Shutdown
-	}
-
-	rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
 
 	app.currentCommand = rootCmd
 	app.CobraCommand = rootCmd

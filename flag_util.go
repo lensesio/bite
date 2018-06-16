@@ -51,6 +51,13 @@ func CheckRequiredFlags(cmd *cobra.Command, nameValuePairs FlagPair) (err error)
 	return
 }
 
+// CountRegisteredFlags returns the length of the registered flags (except help), some of them may not be used "now" at all.
+func CountRegisteredFlags(set *pflag.FlagSet) (n int) {
+	// formal instead of actual, no hidden, it may include help flag.
+	set.VisitAll(func(*pflag.Flag) { n++ })
+	return
+}
+
 func getFlagValue(name string, set *pflag.FlagSet) (flagValue reflect.Value) {
 	flag := set.Lookup(name)
 	flagName := flag.Name

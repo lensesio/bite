@@ -115,7 +115,7 @@ func getInputDescription(typ reflect.Type, set *pflag.FlagSet) (actionDescriptio
 	var desc actionDescriptionInput
 
 	// if func(input) and flags are not match throw error.
-	if expected, got := set.NFlag(), typ.NumIn(); expected != got && got > 0 {
+	if expected, got := CountRegisteredFlags(set) /*set.NFlag()*/, typ.NumIn(); expected != got && got > 0 {
 		if ftyp := typ.In(0); ftyp == commandTyp {
 			desc.FirstAsCommand = true
 		} else if ftyp == argsTyp {
@@ -179,15 +179,20 @@ func bindActionInputArguments(typ reflect.Type, set *pflag.FlagSet, inputInfo ac
 		err error
 	)
 
+	// fill with default values to avoid action call using zero values.
+	for i := range in {
+		in[i] = reflect.New(typ.In(i)).Elem()
+	}
+
 	if inputInfo.firstPositionIsAllocatable() {
 		pos = 1
 	}
 
-	set.Visit(func(flag *pflag.Flag) {
+	set.Visit(func(flag *pflag.Flag) { // loop through the filled flags.
 		flagName := flag.Name
 
 		if expected, got := flag.Value.Type(), typ.In(pos).Kind().String(); expected != got {
-			errMsg := fmt.Sprintf("input argument[%d] binded with flag '%s' has invalid kind of type, expected: %T but got %T", pos, flagName, expected, got)
+			errMsg := fmt.Sprintf("input argument[%d] binded with flag '%s' has invalid kind of type, expected: %v but got %v", pos, flagName, expected, got)
 			if err != nil {
 				errMsg = fmt.Sprintf("%s\n%s", err, errMsg) // catch as many errors as we can now.
 			}
@@ -223,15 +228,17 @@ func handleActionResult(cmd *cobra.Command, fn reflect.Value, in []reflect.Value
 			return nil
 		}
 
-		if desc.FirstAsError {
-			return val.Interface().(error) // if the error was nil, it never goes here.
-		} else if desc.FirstAsString {
-			if err := PrintInfo(cmd, val.Interface().(string)); err != nil {
-				return err
-			}
-		} else {
-			if err := PrintObject(cmd, val.Interface()); err != nil {
-				return err
+		if v := val.Interface(); v != nil {
+			if desc.FirstAsError { // if the error was nil, it never goes here.
+				return val.Interface().(error)
+			} else if desc.FirstAsString {
+				if err := PrintInfo(cmd, val.Interface().(string)); err != nil {
+					return err
+				}
+			} else {
+				if err := PrintObject(cmd, val.Interface()); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -243,7 +250,9 @@ func handleActionResult(cmd *cobra.Command, fn reflect.Value, in []reflect.Value
 			return nil
 		}
 
-		return val.Interface().(error)
+		if v := val.Interface(); v != nil {
+			return v.(error)
+		}
 	}
 
 	return nil
