@@ -133,7 +133,7 @@ func (app *Application) AddCommand(cmd *Command) {
 	}
 }
 
-func (app *Application) Run(output io.Writer) error {
+func (app *Application) Run(output io.Writer, args []string) error {
 	rand.Seed(time.Now().UTC().UnixNano()) // <3
 
 	if output == nil {
@@ -142,6 +142,13 @@ func (app *Application) Run(output io.Writer) error {
 
 	rootCmd := Build(app)
 	rootCmd.SetOutput(output)
+	if len(args) == 0 && len(os.Args) > 0 {
+		args = os.Args[1:]
+	}
+
+	if !rootCmd.DisableFlagParsing {
+		rootCmd.ParseFlags(args)
+	}
 
 	if app.ShowSpinner && !*app.MachineFriendly {
 		return ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
@@ -183,48 +190,42 @@ func Build(app *Application) *cobra.Command {
 		app.PersistentFlags(rootCmd.PersistentFlags())
 	}
 
-	// var setup, shutdown func(*cobra.Command, []string) error
+	var setup, shutdown func(*cobra.Command, []string) error
 
-	// if app.Setup != nil {
-	// 	fn, err := makeAction(app.Setup, rootCmd.Flags())
-	// 	if err != nil {
-	// 		panic(err) // TODO: remove panic but keep check before run.
-	// 	}
+	if app.Setup != nil {
+		fn, err := makeAction(app.Setup, rootCmd.PersistentFlags())
+		if err != nil {
+			panic(err) // TODO: remove panic but keep check before run.
+		}
 
-	// 	setup = fn
-	// }
+		setup = fn
+	}
 
-	// if app.Shutdown != nil {
-	// 	fn, err := makeAction(app.Shutdown, rootCmd.Flags())
-	// 	if err != nil {
-	// 		panic(err) // TODO: remove panic but keep check before run.
-	// 	}
+	if app.Shutdown != nil {
+		fn, err := makeAction(app.Shutdown, rootCmd.PersistentFlags())
+		if err != nil {
+			panic(err) // TODO: remove panic but keep check before run.
+		}
 
-	// 	shutdown = fn
-	// }
+		shutdown = fn
+	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		app.currentCommand = cmd // bind current command here.
 
-		if app.Setup != nil {
-			setup, err := makeAction(app.Setup, rootCmd.PersistentFlags())
-			if err != nil {
-				return err // TODO: find a way for build check.
-			}
-
+		if setup != nil {
 			return setup(cmd, args)
 		}
 
 		return nil
 	}
 
-	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-		if app.Shutdown != nil {
-			shutdown, err := makeAction(app.Shutdown, cmd.Flags())
-			if err != nil {
-				return err
-			}
+	if setup == nil {
+		rootCmd.RunE = func(*cobra.Command, []string) error { return nil }
+	}
 
+	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
+		if shutdown != nil {
 			return shutdown(cmd, args)
 		}
 
@@ -308,3 +309,46 @@ func (b *ApplicationBuilder) BuildAndRun(output io.Writer) *Application {
 	b.app.Run(output)
 }
 */
+
+type ApplicationBuilder struct {
+	app *Application
+}
+
+func Name(name string) *ApplicationBuilder {
+	return &ApplicationBuilder{
+		app: &Application{Name: name},
+	}
+}
+
+func (b *ApplicationBuilder) Description(description string) *ApplicationBuilder {
+	b.app.Description = description
+	return b
+}
+
+func (b *ApplicationBuilder) Version(version string) *ApplicationBuilder {
+	b.app.Version = version
+	return b
+}
+
+func (b *ApplicationBuilder) Setup(setupFunc interface{}) *ApplicationBuilder {
+	b.app.Setup = setupFunc
+	return b
+}
+
+func (b *ApplicationBuilder) Flags(fn func(*Flags)) *ApplicationBuilder {
+	b.app.PersistentFlags = fn
+	return b
+}
+
+func (b *ApplicationBuilder) GetFlags() *Flags {
+	return b.app.CobraCommand.Flags()
+}
+
+func (b *ApplicationBuilder) Parse(args ...string) error {
+	rootCmd := Build(b.app)
+	return rootCmd.ParseFlags(args)
+}
+
+func (b *ApplicationBuilder) Run(w io.Writer, args []string) error {
+	return b.app.Run(w, args)
+}

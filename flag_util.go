@@ -12,12 +12,17 @@ import (
 
 // FlagPair is just a map[string]interface{}, see `CheckRequiredFlags` for more.
 type FlagPair map[string]interface{}
+type FlagSet = *pflag.FlagSet
+type Flags = pflag.FlagSet
 
 // CheckRequiredFlags function can be used to manually check for required flags, when the command does not specify a required flag (mostly because of file loading feature).
 func CheckRequiredFlags(cmd *cobra.Command, nameValuePairs FlagPair) (err error) {
 	if nameValuePairs == nil {
 		return nil
 	}
+
+	var v *pflag.FlagSet
+	v.Bool("dsadsa", false, "")
 
 	var emptyFlags []string
 

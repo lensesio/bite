@@ -5,10 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
-
-type FlagSet = *pflag.FlagSet
 
 type Command struct {
 	App     *Application
