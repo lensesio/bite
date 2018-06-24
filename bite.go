@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kataras/tableprinter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -104,15 +105,17 @@ func (app *Application) PrintObject(v interface{}) error {
 // 	return WriteTable(w, v)
 // }
 
-func PrintObject(cmd *cobra.Command, v interface{}) error {
+func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interface{}) error {
+	out := cmd.Root().OutOrStdout()
 	machineFriendlyFlagValue := GetMachineFriendlyFlag(cmd)
 	if machineFriendlyFlagValue {
 		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
 		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
-		return WriteJSON(cmd.Root().OutOrStdout(), v, prettyFlagValue, jmesQueryPathFlagValue)
+		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
 	}
 
-	return WriteTable(cmd.Root().OutOrStdout(), v)
+	tableprinter.Print(out, v, tableOnlyFilters...)
+	return nil
 }
 
 func (app *Application) Write(b []byte) (int, error) {

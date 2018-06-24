@@ -154,7 +154,8 @@ func getOutputDescription(typ reflect.Type, set *pflag.FlagSet) (actionDescripti
 		desc.FirstAsError = true
 	} else if ftyp.Kind() == reflect.String {
 		desc.FirstAsString = true
-	} else if ftyp.Kind() == reflect.Interface {
+		// } else if ftyp.Kind() == reflect.Interface { <- replaced by:
+	} else {
 		desc.FirstAsObject = true
 	}
 

@@ -25,7 +25,7 @@ type Command struct {
 	Children             []*Command
 	ShareFlags           bool
 	RequiredRuntimeFlags func() FlagPair
-	Flags                func(FlagSet)
+	Flags                func(*Flags)
 
 	parent *Command
 
