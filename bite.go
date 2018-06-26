@@ -189,20 +189,22 @@ func Build(app *Application) *cobra.Command {
 		rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
 	}
 
+	fs := rootCmd.Flags()
 	if app.PersistentFlags != nil {
-		app.PersistentFlags(rootCmd.PersistentFlags())
+		app.PersistentFlags(fs)
 	}
 
-	var setup, shutdown func(*cobra.Command, []string) error
+	var shutdown func(*cobra.Command, []string) error
 
-	if app.Setup != nil {
-		fn, err := makeAction(app.Setup, rootCmd.PersistentFlags())
-		if err != nil {
-			panic(err) // TODO: remove panic but keep check before run.
-		}
+	// DON'T DO IT HERE <- we dont have the arguments needed for parsing the "fs" yet.
+	// if app.Setup != nil {
+	// 	fn, err := makeAction(app.Setup, fs)
+	// 	if err != nil {
+	// 		panic(err) // TODO: remove panic but keep check before run.
+	// 	}
 
-		setup = fn
-	}
+	// 	setup = fn
+	// }
 
 	if app.Shutdown != nil {
 		fn, err := makeAction(app.Shutdown, rootCmd.PersistentFlags())
@@ -216,16 +218,21 @@ func Build(app *Application) *cobra.Command {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		app.currentCommand = cmd // bind current command here.
 
-		if setup != nil {
-			return setup(cmd, args)
+		if app.Setup != nil {
+			fn, err := makeAction(app.Setup, fs)
+			if err != nil {
+				return fmt.Errorf("%s: %v", cmd.Name(), err) // dev-use.
+			}
+
+			return fn(cmd, args)
 		}
 
 		return nil
 	}
 
-	if setup == nil {
-		rootCmd.RunE = func(*cobra.Command, []string) error { return nil }
-	}
+	// if setup == nil {
+	// 	rootCmd.RunE = func(*cobra.Command, []string) error { return nil }
+	// }
 
 	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
 		if shutdown != nil {

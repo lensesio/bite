@@ -31,6 +31,45 @@ func (fl *FileLoader) WithPathResolve(fn PathResolver) *FileLoader {
 	return fl
 }
 
+func FileBind(outPtr interface{}, customizers ...func(*FileLoader)) CobraRunner {
+	if outPtr == nil {
+		return emptyRunner
+	}
+
+	if reflect.TypeOf(outPtr).Kind() != reflect.Ptr {
+		panic("outPtr is not a pointer")
+	}
+
+	fl := new(FileLoader)
+	fl.pathResolver = func(_ *cobra.Command, args []string) string {
+		if len(args) == 0 {
+			return ""
+		}
+
+		return args[0]
+	}
+
+	for _, c := range customizers {
+		c(fl)
+	}
+
+	return func(cmd *cobra.Command, args []string) error {
+		if path := fl.pathResolver(cmd, args); path != "" {
+			if err := LoadFile(cmd, path, outPtr); err != nil {
+				return err
+			}
+		} else {
+			if fl.elseFunc != nil {
+				if err := fl.elseFunc(); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
 func ShouldTryLoadFile(cmd *cobra.Command, outPtr interface{}) *FileLoader {
 	if reflect.TypeOf(outPtr).Kind() != reflect.Ptr {
 		panic("outPtr is not a pointer")

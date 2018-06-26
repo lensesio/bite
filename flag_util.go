@@ -55,6 +55,12 @@ func CheckRequiredFlags(cmd *cobra.Command, nameValuePairs FlagPair) (err error)
 	return
 }
 
+func RequireFlags(nameValuePairs FlagPair) CobraRunner {
+	return func(cmd *cobra.Command, args []string) error {
+		return CheckRequiredFlags(cmd, nameValuePairs)
+	}
+}
+
 // CountRegisteredFlags returns the length of the registered flags (except help), some of them may not be used "now" at all.
 func CountRegisteredFlags(set *pflag.FlagSet) (n int) {
 	// formal instead of actual, no hidden, it may include help flag.

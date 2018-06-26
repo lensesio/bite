@@ -12,6 +12,22 @@ func isGoodFunc(v reflect.Value) bool {
 	return !v.IsNil() && v.IsValid() && v.Kind() == reflect.Func
 }
 
+func Action(action interface{}) CobraRunner {
+	return func(cmd *cobra.Command, args []string) error {
+		set := cmd.LocalNonPersistentFlags() // will not work as expected on app setup.
+		if cmd.Root().Name() == cmd.Name() {
+			set = cmd.Flags()
+		}
+
+		run, err := makeAction(action, set)
+		if err != nil {
+			return err
+		}
+
+		return run(cmd, args)
+	}
+}
+
 var emptyIn = []reflect.Value{}
 
 // makeAction collects the flags from the dynamic runner, give priority to the func instead of the registered flags, we collect the local flags.
@@ -115,7 +131,7 @@ func getInputDescription(typ reflect.Type, set *pflag.FlagSet) (actionDescriptio
 	var desc actionDescriptionInput
 
 	// if func(input) and flags are not match throw error.
-	if expected, got := CountRegisteredFlags(set) /*set.NFlag()*/, typ.NumIn(); expected != got && got > 0 {
+	if expected, got := CountRegisteredFlags(set) /*set.NFlag()*/, typ.NumIn(); got > 0 { //expected != got && got > 0 {
 		if ftyp := typ.In(0); ftyp == commandTyp {
 			desc.FirstAsCommand = true
 		} else if ftyp == argsTyp {
@@ -126,7 +142,7 @@ func getInputDescription(typ reflect.Type, set *pflag.FlagSet) (actionDescriptio
 			desc.LastAsArguments = true
 		}
 
-		if !desc.FirstAsArguments && !desc.FirstAsCommand && !desc.LastAsArguments {
+		if expected != got && !desc.FirstAsArguments && !desc.FirstAsCommand && !desc.LastAsArguments {
 			return desc, fmt.Errorf("input arguments and flags not matched, expected %d but got %d input arguments", expected, got)
 		}
 	} else if got == 0 {
@@ -191,7 +207,6 @@ func bindActionInputArguments(typ reflect.Type, set *pflag.FlagSet, inputInfo ac
 
 	set.Visit(func(flag *pflag.Flag) { // loop through the filled flags.
 		flagName := flag.Name
-
 		if expected, got := flag.Value.Type(), typ.In(pos).Kind().String(); expected != got {
 			errMsg := fmt.Sprintf("input argument[%d] binded with flag '%s' has invalid kind of type, expected: %v but got %v", pos, flagName, expected, got)
 			if err != nil {

@@ -1,7 +1,6 @@
 package bite
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,9 +39,9 @@ func (cmd *Command) canAcceptParentFlags() bool {
 	return (cmd.ShareFlags && cmd.parent != nil) || (cmd.parent != nil && cmd.parent.hasRunner() == false)
 }
 
-func (cmd *Command) checkRequiredFlags(c *cobra.Command) error {
+func (cmd *Command) checkRequiredFlags(c *cobra.Command, _ []string) error {
 	if cmd.canAcceptParentFlags() {
-		if err := cmd.parent.checkRequiredFlags(c); err != nil {
+		if err := cmd.parent.checkRequiredFlags(c, nil); err != nil {
 			return err
 		}
 	}
@@ -135,57 +134,27 @@ func BuildCommand(app *Application, cmd *Command) *cobra.Command {
 		cmd.TryLoadFromFile = cmd.parent.TryLoadFromFile
 	}
 
-	if cmd.hasRunner() {
-		// after the flags set.
-		run, err := makeAction(cmd.Action, cmd.CobraCommand.Flags())
-		if err != nil {
-			panic(err) // panic? I don't like this but keep it as it's so it can break on build time ASAP, should be changed to return (*cobra.Command, error) in the future.
-		}
-		cmd.CobraCommand.RunE = func(c *cobra.Command, args []string) error {
-			min, max, got := cmd.MinArgs, cmd.MaxArgs, len(args)
-			gotStr := "nothing"
-			if got > 0 {
-				gotStr = fmt.Sprintf("%d", got)
-			}
+	// if cmd.hasRunner() {
+	// after the flags set.
+	// run, err := makeAction(cmd.Action, cmd.CobraCommand.Flags())
+	// if err != nil {
+	// 	panic(err) // panic? I don't like this but keep it as it's so it can break on build time ASAP, should be changed to return (*cobra.Command, error) in the future.
+	// }
 
-			if min+max > 0 && min == max && got != min {
-				if min == 1 {
-					return fmt.Errorf("%s command expected only one argument but got %s", c.Name(), gotStr)
-				}
-				return fmt.Errorf("%s command expected exactly %d arguments but got %s", c.Name(), min, gotStr)
-			}
+	Apply(cmd.CobraCommand,
+		If(cmd.hasRunner(),
+			ArgsRange(cmd.MinArgs, cmd.MaxArgs),
+			FileBind(cmd.TryLoadFromFile),
+			cmd.checkRequiredFlags,
+			// after or before the local flags set, it runs at execute-time.
+			Action(cmd.Action),
+		))
+	// }
 
-			if min > 0 && got < min {
-				if max <= 0 {
-					if min == 1 {
-						return fmt.Errorf("%s command expected a single argument but got %s", c.Name(), gotStr)
-					}
-
-					return fmt.Errorf("%s command expected %d arguments but got %s", c.Name(), min, gotStr)
-				}
-
-				if min == 1 {
-					return fmt.Errorf("%s command expected at least one argument", c.Name())
-				}
-				return fmt.Errorf("%s command expected at least %d arguments but got %s", c.Name(), min, gotStr)
-			}
-
-			if max > 0 && got > max {
-				return fmt.Errorf("%s command can not accept more than %d arguments", c.Name(), max)
-			}
-
-			if err := cmd.checkRequiredFlags(c); err != nil {
-				return err
-			}
-
-			return run(c, args)
-		}
-	}
-
-	if cmd.TryLoadFromFile != nil {
-		// should be the last .RunE modifier.
-		ShouldTryLoadFile(cmd.CobraCommand, cmd.TryLoadFromFile)
-	}
+	// if cmd.TryLoadFromFile != nil {
+	// 	// should be the last .RunE modifier.
+	// 	// ShouldTryLoadFile(cmd.CobraCommand, cmd.TryLoadFromFile)
+	// }
 
 	for _, child := range cmd.Children {
 		child.parent = cmd
