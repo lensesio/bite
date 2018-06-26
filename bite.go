@@ -51,6 +51,7 @@ type Application struct {
 	Name        string
 	Version     string
 	Description string
+	Long        string
 
 	HelpTemplate fmt.Stringer
 	// ShowSpinner if true(default is false) and machine-friendly is false(default is true) then
@@ -152,6 +153,8 @@ func (app *Application) Run(output io.Writer, args []string) error {
 		rootCmd.ParseFlags(args)
 	}
 
+	app.commands = nil
+
 	if app.ShowSpinner && !*app.MachineFriendly {
 		return ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
 	}
@@ -163,6 +166,86 @@ func (app *Application) exampleText(str string) string {
 	return fmt.Sprintf("%s %s", app.Name, str)
 }
 
+// keeps track of the Applications, this is the place that builded applications are stored, so the `Get` can receive
+// the exact Application that the command belongs to.
+var applications []*Application
+
+func registerApplication(app *Application) {
+	for i, a := range applications {
+		if a.Name == app.Name {
+			// override the existing and exit.
+			applications[i] = app
+			return
+		}
+	}
+
+	applications = append(applications, app)
+}
+
+func Get(cmd *cobra.Command) *Application {
+	if app := GetByName(cmd.Name()); app != nil {
+		return app
+	}
+
+	if cmd.HasParent() {
+		return Get(cmd.Parent())
+	}
+
+	return nil
+}
+
+func GetByName(applicationName string) *Application {
+	for _, app := range applications {
+		if app.Name == applicationName {
+			return app
+		}
+	}
+
+	return nil
+}
+
+func FindCommand(applicationName string, args []string) (*cobra.Command, []string) {
+	app := GetByName(applicationName)
+	if app == nil {
+		return nil, nil
+	}
+
+	c, cArgs, err := app.CobraCommand.Find(args)
+	if err != nil {
+		return nil, nil
+	}
+
+	return c, cArgs
+}
+
+func (app *Application) FindCommand(args []string) (*cobra.Command, []string) {
+	return FindCommand(app.Name, args)
+}
+
+func GetCommand(applicationName string, commandName string) *cobra.Command {
+	app := GetByName(applicationName)
+	if app == nil {
+		return nil
+	}
+
+	cmd := app.CobraCommand
+	for cmd != nil {
+		for _, c := range cmd.Commands() {
+			if c.Name() == commandName {
+				return c
+			}
+
+			cmd = c
+		}
+	}
+
+	return nil
+}
+
+func (app *Application) GetCommand(commandName string) *cobra.Command {
+	return GetCommand(app.Name, commandName)
+}
+
 func Build(app *Application) *cobra.Command {
 	if app.CobraCommand != nil {
 		return app.CobraCommand
@@ -172,11 +255,20 @@ func Build(app *Application) *cobra.Command {
 		app.FriendlyErrors = FriendlyErrors{}
 	}
 
+	useText := app.Name
+	if strings.LastIndexByte(app.Name, '[') < len(strings.Split(app.Name, " ")[0]) {
+		useText = fmt.Sprintf("%s [command] [flags]", app.Name)
+	}
+
+	if app.Long == "" {
+		app.Long = app.Description
+	}
+
 	rootCmd := &cobra.Command{
 		Version:                    app.Version,
-		Use:                        fmt.Sprintf("%s [command] [flags]", app.Name),
+		Use:                        useText,
 		Short:                      app.Description,
-		Long:                       app.Description,
+		Long:                       app.Long,
 		SilenceUsage:               true,
 		SilenceErrors:              true,
 		TraverseChildren:           true,
@@ -233,6 +325,8 @@ func Build(app *Application) *cobra.Command {
 
 	app.currentCommand = rootCmd
 	app.CobraCommand = rootCmd
+
+	registerApplication(app)
 	return rootCmd
 }
 
@@ -297,6 +391,10 @@ func Name(name string) *ApplicationBuilder {
 	return &ApplicationBuilder{
 		app: &Application{Name: name},
 	}
+}
+
+func (b *ApplicationBuilder) Get() *Application {
+	return b.app
 }
 
 func (b *ApplicationBuilder) Description(description string) *ApplicationBuilder {

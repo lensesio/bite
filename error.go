@@ -2,6 +2,8 @@ package bite
 
 import (
 	"errors"
+	"fmt"
+	"github.com/spf13/cobra"
 )
 
 type Error interface {
@@ -27,4 +29,13 @@ func ackError(m FriendlyErrors, err error) error {
 	}
 
 	return err
+}
+
+func FriendlyError(cmd *cobra.Command, code int, format string, args ...interface{}) {
+	app := Get(cmd)
+	if app.FriendlyErrors == nil {
+		app.FriendlyErrors = make(FriendlyErrors)
+	}
+
+	app.FriendlyErrors[code] = fmt.Sprintf(format, args...)
 }

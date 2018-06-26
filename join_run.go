@@ -57,3 +57,15 @@ func Apply(cmd *cobra.Command, runners ...CobraRunner) {
 
 	cmd.RunE = Join(runners...)
 }
+
+func Prepend(cmd *cobra.Command, runners ...CobraRunner) {
+	if len(runners) == 0 {
+		return
+	}
+
+	if oldRunner := cmd.RunE; oldRunner != nil {
+		runners = append(runners, oldRunner)
+	}
+
+	cmd.RunE = Join(runners...)
+}
