@@ -18,6 +18,7 @@ func TestGetNested(t *testing.T) {
 
 	level1 := &cobra.Command{Use: "my-command"}
 	level2 := &cobra.Command{Use: "my-my-command"}
+	level22 := &cobra.Command{Use: "my-my-second-command"}
 	level3 := &cobra.Command{Use: bottomCommandName, RunE: func(cmd *cobra.Command, args []string) error {
 		got := Get(cmd)
 		if got == nil {
@@ -36,7 +37,7 @@ func TestGetNested(t *testing.T) {
 
 	level2.AddCommand(level3)
 	level1.AddCommand(level2)
-
+	level1.AddCommand(level22)
 	app.AddCommand(level1)
 	Build(app)
 

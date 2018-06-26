@@ -222,24 +222,25 @@ func (app *Application) FindCommand(args []string) (*cobra.Command, []string) {
 	return FindCommand(app.Name, args)
 }
 
+func getCommand(from *cobra.Command, subCommandName string) *cobra.Command {
+	for _, c := range from.Commands() {
+		if c.Name() == subCommandName {
+			return c
+		}
+
+		return getCommand(c, subCommandName)
+	}
+
+	return nil
+}
+
 func GetCommand(applicationName string, commandName string) *cobra.Command {
 	app := GetByName(applicationName)
 	if app == nil {
 		return nil
 	}
 
-	cmd := app.CobraCommand
-	for cmd != nil {
-		for _, c := range cmd.Commands() {
-			if c.Name() == commandName {
-				return c
-			}
-
-			cmd = c
-		}
-	}
-
-	return nil
+	return getCommand(app.CobraCommand, commandName)
 }
 
 func (app *Application) GetCommand(commandName string) *cobra.Command {
