@@ -166,8 +166,8 @@ func (app *Application) exampleText(str string) string {
 	return fmt.Sprintf("%s %s", app.Name, str)
 }
 
-// keeps track of the Applications, this is the place that builded applications are stored, so the `Get` can receive
-// the exact Application that the command belongs to.
+// keeps track of the Applications, this is the place that built applications are being stored,
+// so the `Get` can receive the exact Application that the command belongs to, a good example is the `FriendlyError` function and all the `bite` package-level helpers.
 var applications []*Application
 
 func registerApplication(app *Application) {
