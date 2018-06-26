@@ -61,10 +61,9 @@ type Application struct {
 	MachineFriendly               *bool
 	PersistentFlags               func(*pflag.FlagSet)
 
-	Setup    interface{} // func(*cobra.Command, []string) error
-	Shutdown interface{} // func(*cobra.Command, []string) error
-
-	commands       []*Command // commands should be builded and added on "Build" state or even after it, `AddCommand` will handle this.
+	Setup          CobraRunner
+	Shutdown       CobraRunner
+	commands       []*cobra.Command // commands should be builded and added on "Build" state or even after it, `AddCommand` will handle this.
 	currentCommand *cobra.Command
 
 	FriendlyErrors FriendlyErrors
@@ -126,13 +125,13 @@ func (app *Application) Write(b []byte) (int, error) {
 	return app.CobraCommand.OutOrStdout().Write(b)
 }
 
-func (app *Application) AddCommand(cmd *Command) {
+func (app *Application) AddCommand(cmd *cobra.Command) {
 	if app.CobraCommand == nil {
 		// not builded yet, add these commands.
 		app.commands = append(app.commands, cmd)
 	} else {
 		// builded, add them directly as cobra commands.
-		app.CobraCommand.AddCommand(BuildCommand(app, cmd))
+		app.CobraCommand.AddCommand(cmd)
 	}
 }
 
@@ -189,54 +188,24 @@ func Build(app *Application) *cobra.Command {
 		rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
 	}
 
-	fs := rootCmd.Flags()
+	fs := rootCmd.PersistentFlags()
 	if app.PersistentFlags != nil {
 		app.PersistentFlags(fs)
-	}
-
-	var shutdown func(*cobra.Command, []string) error
-
-	// DON'T DO IT HERE <- we dont have the arguments needed for parsing the "fs" yet.
-	// if app.Setup != nil {
-	// 	fn, err := makeAction(app.Setup, fs)
-	// 	if err != nil {
-	// 		panic(err) // TODO: remove panic but keep check before run.
-	// 	}
-
-	// 	setup = fn
-	// }
-
-	if app.Shutdown != nil {
-		fn, err := makeAction(app.Shutdown, rootCmd.PersistentFlags())
-		if err != nil {
-			panic(err) // TODO: remove panic but keep check before run.
-		}
-
-		shutdown = fn
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		app.currentCommand = cmd // bind current command here.
 
 		if app.Setup != nil {
-			fn, err := makeAction(app.Setup, fs)
-			if err != nil {
-				return fmt.Errorf("%s: %v", cmd.Name(), err) // dev-use.
-			}
-
-			return fn(cmd, args)
+			return app.Setup(cmd, args)
 		}
 
 		return nil
 	}
 
-	// if setup == nil {
-	// 	rootCmd.RunE = func(*cobra.Command, []string) error { return nil }
-	// }
-
 	rootCmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-		if shutdown != nil {
-			return shutdown(cmd, args)
+		if app.Shutdown != nil {
+			return app.Shutdown(cmd, args)
 		}
 
 		return nil
@@ -244,7 +213,7 @@ func Build(app *Application) *cobra.Command {
 
 	if len(app.commands) > 0 {
 		for _, cmd := range app.commands {
-			rootCmd.AddCommand(BuildCommand(app, cmd))
+			rootCmd.AddCommand(cmd)
 		}
 
 		// clear mem.
@@ -340,7 +309,7 @@ func (b *ApplicationBuilder) Version(version string) *ApplicationBuilder {
 	return b
 }
 
-func (b *ApplicationBuilder) Setup(setupFunc interface{}) *ApplicationBuilder {
+func (b *ApplicationBuilder) Setup(setupFunc CobraRunner) *ApplicationBuilder {
 	b.app.Setup = setupFunc
 	return b
 }
