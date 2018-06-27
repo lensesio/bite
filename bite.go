@@ -68,6 +68,7 @@ type Application struct {
 	currentCommand *cobra.Command
 
 	FriendlyErrors FriendlyErrors
+	Memory         *Memory
 
 	CobraCommand *cobra.Command // the root command, after "Build" state.
 }
@@ -254,6 +255,10 @@ func Build(app *Application) *cobra.Command {
 
 	if app.FriendlyErrors == nil {
 		app.FriendlyErrors = FriendlyErrors{}
+	}
+
+	if app.Memory == nil {
+		app.Memory = makeMemory()
 	}
 
 	useText := app.Name
