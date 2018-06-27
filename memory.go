@@ -29,6 +29,23 @@ func (m *Memory) Set(key uint8, value interface{}) (replacement bool) {
 	return
 }
 
+// SetOnce will store a value based on its key if it's not there already, do not confuse its action with immutability.
+func (m *Memory) SetOnce(key uint8, value interface{}) (set bool) {
+	if m.tmp == nil {
+		return false
+	}
+
+	if len(m.tmp) > 0 && m.Has(key) {
+		return false
+	}
+
+	m.mu.Lock()
+	m.tmp[key] = value
+	m.mu.Unlock()
+
+	return true
+}
+
 // m.Unset(MyKey) == removed, safe for concurrent access.
 func (m *Memory) Unset(key uint8) (removed bool) {
 	if len(m.tmp) == 0 {
