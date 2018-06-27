@@ -89,7 +89,7 @@ func (m *Memory) SetOnceFunc(key uint8, receiverFunc interface{}) error {
 
 	// first is the value we must set.
 	if got := out[0]; got.CanInterface() {
-		m.Set(key, got.Interface())
+		m.Set(key, got.Interface()) // allow nil setting is part of our design decision.
 	}
 	// }else if fnOut == 1{
 	// 	return fmt.Errorf("mem: nothing to set")
@@ -98,8 +98,10 @@ func (m *Memory) SetOnceFunc(key uint8, receiverFunc interface{}) error {
 	if fnOut == 2 {
 		// second value was error, return that.
 		if got := out[1]; got.CanInterface() {
-			if err, sure := got.Interface().(error); sure {
-				return err
+			if errG := got.Interface(); errG != nil {
+				if err, sure := errG.(error); sure {
+					return err
+				}
 			}
 		}
 	}
