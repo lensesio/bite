@@ -1,6 +1,7 @@
 package bite
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -68,6 +69,19 @@ func (m *Memory) Get(key uint8) (value interface{}, found bool) {
 	m.mu.Unlock()
 
 	return
+}
+
+func (m *Memory) MustGet(key uint8) interface{} {
+	v, ok := m.Get(key)
+	if !ok {
+		panic(fmt.Sprintf("mem: key for %d missing", key))
+	}
+
+	if v == nil {
+		panic(fmt.Sprintf("mem: value for key %d is nil", key))
+	}
+
+	return v
 }
 
 // GetAll returns a clone of all the stored values, safe for concurrent access.
