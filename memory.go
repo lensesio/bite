@@ -30,7 +30,7 @@ func (m *Memory) Set(key uint8, value interface{}) (replacement bool) {
 }
 
 // SetOnce will store a value based on its key if it's not there already, do not confuse its action with immutability.
-func (m *Memory) SetOnce(key uint8, value interface{}) (set bool) {
+func (m *Memory) SetOnce(key uint8, value interface{}) bool {
 	if m.tmp == nil {
 		return false
 	}
@@ -44,6 +44,67 @@ func (m *Memory) SetOnce(key uint8, value interface{}) (set bool) {
 	m.mu.Unlock()
 
 	return true
+}
+
+var (
+	emptyIn  []reflect.Value
+	errorTyp = reflect.TypeOf((*error)(nil)).Elem()
+)
+
+func (m *Memory) SetOnceFunc(key uint8, receiverFunc interface{}) error {
+	if m.tmp == nil {
+		return nil
+	}
+
+	if len(m.tmp) > 0 && m.Has(key) {
+		return nil
+	}
+
+	// execute the receiverFunc to get its value.
+	fn := reflect.Indirect(reflect.ValueOf(receiverFunc))
+	if fn.Kind() == reflect.Interface {
+		fn = fn.Elem()
+	}
+
+	if fn.Kind() != reflect.Func {
+		return fmt.Errorf("mem: receiverFunc not type of func")
+	}
+
+	fnTyp := fn.Type()
+	if fnTyp.NumIn() != 0 {
+		return fmt.Errorf("mem: receiverFunc should not accept any input argument")
+	}
+
+	fnOut := fnTyp.NumOut()
+	if fnOut < 1 || fnOut > 2 {
+		return fmt.Errorf("mem: receiverFunc should return one(value) or two (value, error) but returns %d values", fnOut)
+	}
+
+	// check if second output value is error, if so we will return that to the caller.
+	if fnOut == 2 && fnTyp.Out(1) != errorTyp {
+		return fmt.Errorf("mem: receiverFunc second output value should be type of error")
+	}
+
+	out := fn.Call(emptyIn)
+
+	// first is the value we must set.
+	if got := out[0]; got.CanInterface() {
+		m.Set(key, out[0].Interface())
+	}
+	// }else if fnOut == 1{
+	// 	return fmt.Errorf("mem: nothing to set")
+	// }
+
+	if fnOut == 2 {
+		// second value was error, return that.
+		if got := out[1]; got.CanInterface() {
+			if err, sure := out[1].Interface().(error); sure {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // m.Unset(MyKey) == removed, safe for concurrent access.
