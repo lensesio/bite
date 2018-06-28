@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kataras/tableprinter"
+	"github.com/landoop/tableprinter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
