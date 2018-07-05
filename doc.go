@@ -20,38 +20,16 @@ Example code:
 	}
 
 	func init() {
-		app.AddCommand(newMyCommand())
-	}
-
-	var names = []string{"name1", "name2"}
-
-	func newMyCommand() *bite.Command {
-		var list bool
-		return &bite.Command{
-			Use:     "name",
-			Short: "Print the last name or the available names",
-			Example:   "name --list Print the list of the available names (as JSON if --machine-friendly)",
-			Flags: func(set *bite.FlagSet) {
-				set.BoolVar(&list, "--list", "","--list Print the list of the available names (as JSON if --machine-friendly)")
-			},
-			Run: func(cmd *bite.Command, args []string) error {
-				if list {
-					return cmd.App.PrintObject(names)
-				}
-				name := names[len(names)-1], nil
-				return cmd.App.Print(name)
-			},
-		}
+		// app.AddCommand(aCobraCommand())
 	}
 
 	func main() {
-		// my-app name [--list [--machine-friendly]]
-		if err := app.Run(os.Stdout); err != nil {
+		if err := app.Run(os.Stdout, os.Args[1:]); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	}
 
-Github: https://github.com/kataras/bite
+Github: https://github.com/Landoop/bite
 */
 package bite

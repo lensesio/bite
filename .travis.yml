@@ -3,10 +3,8 @@ os:
   - linux
   - osx
 go:
-  - "go1.8"
-  - "go1.9"
   - "go1.10"
-go_import_path: github.com/kataras/bite
+go_import_path: github.com/landoop/bite
 # we disable test caching via GOCACHE=off
 env:
   global:

@@ -1,0 +1,8 @@
+Third Party libraries and components
+------------------------------------
+
+cobra            : Apache 2.0          - https://github.com/spf13/cobra
+yaml             : Apache 2.0          - https://github.com/go-yaml/yaml
+go-jmespath      : Apache 2.0          - https://github.com/jmespath/go-jmespath
+spinner          : Apache 2.0          - https://github.com/briandowns/spinner
+tableprinter     : Apache 2.0          - https://github.com/Landoop/tableprinter

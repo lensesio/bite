@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/landoop/tableprinter"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -83,7 +84,7 @@ func (app *Application) Print(format string, args ...interface{}) error {
 }
 
 func (app *Application) PrintInfo(format string, args ...interface{}) error {
-	if *app.MachineFriendly || GetSilentFlag(app.CobraCommand) {
+	if *app.MachineFriendly || GetSilentFlag(app.currentCommand) {
 		// check both --machine-friendly and --silent(optional flag,
 		// but can be used side by side without machine friendly to disable info messages on user-friendly state)
 		return nil
@@ -93,17 +94,19 @@ func (app *Application) PrintInfo(format string, args ...interface{}) error {
 }
 
 func (app *Application) PrintObject(v interface{}) error {
-	return PrintObject(app.CobraCommand, v)
+	return PrintObject(app.currentCommand, v)
 }
 
-// func (app *Application) writeObject(w io.Writer, v interface{}) error {
-// 	if *app.MachineFriendly {
-// 		prettyFlagValue := !GetJSONNoPrettyFlag(app.CobraCommand)
-// 		jmesQueryPathFlagValue := GetJSONQueryFlag(app.CobraCommand)
-// 		return WriteJSON(w, v, prettyFlagValue, jmesQueryPathFlagValue)
+// func (app *Application) writeObject(out io.Writer, v interface{}, tableOnlyFilters ...interface{}) error {
+// 	machineFriendlyFlagValue := GetMachineFriendlyFlag(app.CobraCommand)
+// 	if machineFriendlyFlagValue {
+// 		prettyFlagValue := !GetJSONNoPrettyFlag(app.currentCommand)
+// 		jmesQueryPathFlagValue := GetJSONQueryFlag(app.currentCommand)
+// 		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
 // 	}
-
-// 	return WriteTable(w, v)
+//
+// 	tableprinter.Print(out, v, tableOnlyFilters...)
+// 	return nil
 // }
 
 func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interface{}) error {
@@ -283,7 +286,7 @@ func Build(app *Application) *cobra.Command {
 
 	app.MachineFriendly = new(bool)
 	if !app.DisableOutputFormatController {
-		rootCmd.PersistentFlags().BoolVar(app.MachineFriendly, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
+		RegisterMachineFriendlyFlagTo(rootCmd.PersistentFlags(), app.MachineFriendly)
 	}
 
 	fs := rootCmd.PersistentFlags()
@@ -338,56 +341,27 @@ func Build(app *Application) *cobra.Command {
 
 const machineFriendlyFlagKey = "machine-friendly"
 
+func GetMachineFriendlyFlagFrom(set *pflag.FlagSet) bool {
+	b, _ := set.GetBool(machineFriendlyFlagKey)
+	return b
+}
+
 func GetMachineFriendlyFlag(cmd *cobra.Command) bool {
-	b, _ := cmd.Flags().GetBool(machineFriendlyFlagKey)
-	return b
+	return GetMachineFriendlyFlagFrom(cmd.Flags())
 }
 
-/* no...
-type ApplicationBuilder struct {
-	app *Application
-}
-
-func NewApplication(name, version string) *ApplicationBuilder {
-	return &ApplicationBuilder{
-		app: &Application{
-			Name:    name,
-			Version: version,
-		},
+func RegisterMachineFriendlyFlagTo(set *pflag.FlagSet, ptr *bool) {
+	if !GetMachineFriendlyFlagFrom(set) {
+		if ptr == nil {
+			ptr = new(bool)
+		}
+		set.BoolVar(ptr, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
 	}
 }
 
-func (b *ApplicationBuilder) BuildNumbers(buildTime, buildRevision string) *ApplicationBuilder {
-	oldHelpTmpl := b.app.HelpTemplate
-	b.app.HelpTemplate = HelpTemplate{buildTime, buildRevision, true, oldHelpTmpl}
-
-	return b
+func RegisterMachineFriendlyFlag(cmd *cobra.Command, ptr *bool) {
+	RegisterMachineFriendlyFlagTo(cmd.Flags(), ptr)
 }
-
-func (b *ApplicationBuilder) Spinner(enable bool) *ApplicationBuilder {
-	b.app.ShowSpinner = enable
-
-	return b
-}
-
-func (b *ApplicationBuilder) WithFriendlyError(code int, message string) *ApplicationBuilder {
-	if b.app.FriendlyErrors == nil {
-		b.app.FriendlyErrors = FriendlyErrors{}
-	}
-
-	b.app.FriendlyErrors[code] = message
-
-	return b
-}
-
-func (b *ApplicationBuilder) AddCommand() *ApplicationBuilder {
-	return b
-}
-
-func (b *ApplicationBuilder) BuildAndRun(output io.Writer) *Application {
-	b.app.Run(output)
-}
-*/
 
 type ApplicationBuilder struct {
 	app *Application
