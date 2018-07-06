@@ -23,7 +23,7 @@ func NewFlagSet(name string, register func(flags *pflag.FlagSet)) *pflag.FlagSet
 
 const (
 	// if true then noPretty & jmespathQuery are respected, it enables json printing
-	jsonFlagKey = "json"
+	// jsonFlagKey = "json"
 	// if true then it doesn't prints json result(s) with indent.
 	// Defaults to false.
 	// It's not a global flag, but it's a common one, all commands that return results
@@ -35,10 +35,10 @@ const (
 	jsonQueryFlagKey = "query"
 )
 
-func GetJSONFlag(cmd *cobra.Command) bool {
-	b, _ := cmd.Flags().GetBool(jsonFlagKey)
-	return b
-}
+// func GetJSONFlag(cmd *cobra.Command) bool {
+// 	b, _ := cmd.Flags().GetBool(jsonFlagKey)
+// 	return b
+// }
 
 func GetJSONNoPrettyFlag(cmd *cobra.Command) bool {
 	b, _ := cmd.Flags().GetBool(jsonNoPrettyFlagKey)
@@ -51,7 +51,7 @@ func GetJSONQueryFlag(cmd *cobra.Command) string {
 }
 
 var JSONFlagSet = NewFlagSet("flagset.json", func(flags *pflag.FlagSet) {
-	flags.Bool(jsonFlagKey, false, "enable the JSON output of commands (default false).")
+	// flags.Bool(jsonFlagKey, false, "enable the JSON output of commands (default false).")
 	flags.Bool(jsonNoPrettyFlagKey, false, "disable the pretty format for JSON output of commands (default false).")
 	flags.StringP(jsonQueryFlagKey, string(jsonQueryFlagKey[0]), "", "a jmespath query expression. This allows for querying the JSON output of commands")
 })

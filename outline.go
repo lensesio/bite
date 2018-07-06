@@ -6,13 +6,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// like reflect.Indirect but reflect.Interface values too.
+func indirectValue(val reflect.Value) reflect.Value {
+	if kind := val.Kind(); kind == reflect.Interface || kind == reflect.Ptr {
+		return val.Elem()
+	}
+
+	return val
+}
+
 func makeDynamicSingleTableItem(header string, item interface{}) interface{} {
 	f := make([]reflect.StructField, 1)
 	f[0] = reflect.TypeOf(item).Field(0)
 	f[0].Tag = reflect.StructTag(`header:"` + header + `"`)
 	withHeaderTyp := reflect.StructOf(f)
 
-	tmp := reflect.ValueOf(item).Elem(). /* elem because of `interface{}`*/ Convert(withHeaderTyp)
+	tmp := indirectValue(reflect.ValueOf(item)).Convert(withHeaderTyp)
 	return tmp.Interface()
 }
 
