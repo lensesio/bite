@@ -25,9 +25,10 @@ type HelpTemplate struct {
 }
 
 func (h HelpTemplate) String() string {
-	if tmpl := h.Template.String(); tmpl != "" {
-		return tmpl
+	if tmpl := h.Template; tmpl != nil {
+		return tmpl.String()
 	}
+
 	buildTitle := ">>>> build" // if we ever want an emoji, there is one: \U0001f4bb
 	tab := strings.Repeat(" ", len(buildTitle))
 
@@ -84,13 +85,7 @@ func (app *Application) Print(format string, args ...interface{}) error {
 }
 
 func (app *Application) PrintInfo(format string, args ...interface{}) error {
-	if *app.MachineFriendly || GetSilentFlag(app.currentCommand) {
-		// check both --machine-friendly and --silent(optional flag,
-		// but can be used side by side without machine friendly to disable info messages on user-friendly state)
-		return nil
-	}
-
-	return app.Print(format, args...)
+	return PrintInfo(app.currentCommand, format, args...)
 }
 
 func (app *Application) PrintObject(v interface{}) error {
@@ -269,9 +264,9 @@ func Build(app *Application) *cobra.Command {
 		useText = fmt.Sprintf("%s [command] [flags]", app.Name)
 	}
 
-	if app.Long == "" {
-		app.Long = app.Description
-	}
+	// if app.Long == "" {
+	// 	app.Long = app.Description
+	// }
 
 	rootCmd := &cobra.Command{
 		Version:                    app.Version,

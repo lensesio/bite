@@ -20,9 +20,6 @@ func CheckRequiredFlags(cmd *cobra.Command, nameValuePairs FlagPair) (err error)
 		return nil
 	}
 
-	var v *pflag.FlagSet
-	v.Bool("dsadsa", false, "")
-
 	var emptyFlags []string
 
 	for name, value := range nameValuePairs {
@@ -55,9 +52,9 @@ func CheckRequiredFlags(cmd *cobra.Command, nameValuePairs FlagPair) (err error)
 	return
 }
 
-func RequireFlags(nameValuePairs FlagPair) CobraRunner {
+func RequireFlags(nameValuePairsFunc func() FlagPair) CobraRunner {
 	return func(cmd *cobra.Command, args []string) error {
-		return CheckRequiredFlags(cmd, nameValuePairs)
+		return CheckRequiredFlags(cmd, nameValuePairsFunc())
 	}
 }
 

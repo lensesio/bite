@@ -21,6 +21,12 @@ type (
 	PathResolver func(cmd *cobra.Command, args []string) string
 )
 
+func ElseBind(fn func() error) func(*FileLoader) {
+	return func(fl *FileLoader) {
+		fl.Else(fn)
+	}
+}
+
 func (fl *FileLoader) Else(fn func() error) *FileLoader {
 	fl.elseFunc = fn
 	return fl
