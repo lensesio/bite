@@ -84,9 +84,14 @@ func (w *commandWriter) Write(b []byte) (int, error) {
 // ExecuteWithSpinner will make the spinner visible until first output from a command.
 func ExecuteWithSpinner(cmd *cobra.Command) error {
 	for _, a := range os.Args[1:] {
-		if a == "--no-spinner" {
-			// add the flag here so we avoid "unknown flag" errors, we don't actual need it now.
-			// the "magic" with it is that this flag is not registered (on commands) or be visible (on help) until it's actually used.
+		// add the flag here so we avoid "unknown flag" errors, we don't actual need it now.
+		// the "magic" with it is that this flag is not registered (on commands) or be visible (on help) until it's actually used.
+		skipSpinner := a == "--no-spinner"
+		switch a {
+		case "help", "--help", "-h", "--version":
+			skipSpinner = true
+		}
+		if skipSpinner {
 			_ = cmd.PersistentFlags().Bool("no-spinner", true, "disable the spinner")
 
 			// if disabled, run the command's `Execute` as soon as possible.
