@@ -52,6 +52,16 @@ func HasSilentFlag(cmd *cobra.Command) bool {
 	return HasFlag(cmd, silentFlagKey)
 }
 
+// ExpectsFeedback returns true if the "cmd" command's `--silent` flag is registered and it's true, or the `--machine-friendly` is false.
+func ExpectsFeedback(cmd *cobra.Command) bool {
+	canPrintInfo := !GetMachineFriendlyFlag(cmd)
+	if HasSilentFlag(cmd) {
+		canPrintInfo = !GetSilentFlag(cmd)
+	}
+
+	return canPrintInfo
+}
+
 // PrintInfo prints an info message to the command's standard output.
 // If the `--silent`` flag is a REGISTERED flag for that command, then it will check if it's false or not set in order to print, otherwise
 // it will check the `--machine-friendly` flag, if true not print.
@@ -59,12 +69,7 @@ func HasSilentFlag(cmd *cobra.Command) bool {
 // Useful when you want to have --machine-friendly on but want to print an important info message to the user as well but user can also disable that message via
 // a second flag, the --silent one.
 func PrintInfo(cmd *cobra.Command, format string, a ...interface{}) error {
-	shouldPrint := !GetMachineFriendlyFlag(cmd)
-	if HasSilentFlag(cmd) {
-		shouldPrint = !GetSilentFlag(cmd)
-	}
-
-	if !shouldPrint {
+	if !ExpectsFeedback(cmd) {
 		return nil
 	}
 
