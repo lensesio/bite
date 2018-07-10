@@ -72,11 +72,6 @@ func WriteJSON(w io.Writer, v interface{}, pretty bool, jmespathQuery string) er
 		return err
 	}
 
-	// don't escape html.
-	rawJSON = bytes.Replace(rawJSON, []byte("\\u003c"), []byte("<"), -1)
-	rawJSON = bytes.Replace(rawJSON, []byte("\\u003e"), []byte(">"), -1)
-	rawJSON = bytes.Replace(rawJSON, []byte("\\u0026"), []byte("&"), -1)
-
 	_, err = fmt.Fprintln(w, string(rawJSON))
 	return err
 }
@@ -114,6 +109,11 @@ func MarshalJSON(v interface{}, pretty bool, transformers ...Transformer) ([]byt
 		}
 		rawJSON = b
 	}
+
+	// don't escape html.
+	rawJSON = bytes.Replace(rawJSON, []byte("\\u003c"), []byte("<"), -1)
+	rawJSON = bytes.Replace(rawJSON, []byte("\\u003e"), []byte(">"), -1)
+	rawJSON = bytes.Replace(rawJSON, []byte("\\u0026"), []byte("&"), -1)
 
 	return rawJSON, err
 }

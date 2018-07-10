@@ -15,6 +15,15 @@ func indirectValue(val reflect.Value) reflect.Value {
 	return val
 }
 
+// like reflect.Indirect but for types and reflect.Interface types too.
+func indirectType(typ reflect.Type) reflect.Type {
+	if kind := typ.Kind(); kind == reflect.Interface || kind == reflect.Ptr {
+		return typ.Elem()
+	}
+
+	return typ
+}
+
 func makeDynamicSingleTableItem(header string, item interface{}) interface{} {
 	f := make([]reflect.StructField, 1)
 	f[0] = reflect.TypeOf(item).Field(0)

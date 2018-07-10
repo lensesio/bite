@@ -5,9 +5,11 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/landoop/tableprinter"
@@ -72,6 +74,9 @@ type Application struct {
 	FriendlyErrors FriendlyErrors
 	Memory         *Memory
 
+	tablePrintersCache map[io.Writer]*tableprinter.Printer
+	tablePrintersMu    sync.RWMutex
+
 	CobraCommand *cobra.Command // the root command, after "Build" state.
 }
 
@@ -105,7 +110,7 @@ func (app *Application) PrintObject(v interface{}) error {
 // }
 
 func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interface{}) error {
-	out := cmd.Root().OutOrStdout()
+	out := cmd.OutOrStdout()
 	machineFriendlyFlagValue := GetMachineFriendlyFlag(cmd)
 	if machineFriendlyFlagValue {
 		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
@@ -113,7 +118,48 @@ func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interfac
 		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
 	}
 
-	tableprinter.Print(out, v, tableOnlyFilters...)
+	app := Get(cmd)
+	// normally the io.Writer is one, so the tableprinter; the app(it's io.Writer: cmd -> root command's output -> run(w io.Writer) -> app.Write)
+	// but it can be changed manually before this call, so make a check to have only one talbeprinter instance per those writers.
+	app.tablePrintersMu.RLock()
+	printer, ok := app.tablePrintersCache[out]
+	app.tablePrintersMu.RUnlock()
+	if !ok {
+		// register it.
+		printer = tableprinter.New(out)
+		app.tablePrintersMu.Lock()
+		app.tablePrintersCache[out] = printer
+		app.tablePrintersMu.Unlock()
+	}
+
+	// This will try to append a struct-only as a row
+	// for same writer (see above) and the headers cache contains this struct's header-tag fields(;printed at least one time before (see StructHeaders[typ])).
+	typ := indirectType(reflect.TypeOf(v))
+	if typ.Kind() == reflect.Struct {
+		if len(tableprinter.StructHeaders[typ]) > 0 {
+			row, nums := tableprinter.StructParser.ParseRow(indirectValue(reflect.ValueOf(v)))
+			printer.RenderRow(row, nums)
+			return nil
+		}
+	}
+
+	rowsLengthPrinted := printer.Print(v, tableOnlyFilters...)
+	if rowsLengthPrinted == -1 { // means we can't print.
+		// This makes sure that all content, even if json-only tagged will be printed as table, even if not specified as table-ready,
+		// it shouldn't happen but keep it for any case, it's better to show something instead of nothing if there is actually something to be shown here.
+		// It should be avoided, manual `header` tagging is required; otherwise the table's cells may be larger than expected due of picking all json-tagged properties.
+		//
+		// If nothing printed, try load all it as json and print all of its keys(as headers) and rows(values) as a table using the printer's `PrintJSON`.
+		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
+		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
+		rawJSON, err := MarshalJSON(v, prettyFlagValue, jmesQuery(jmesQueryPathFlagValue, v))
+		if err != nil {
+			return err
+		}
+		printer.PrintJSON(rawJSON, tableOnlyFilters)
+		return nil
+	}
+
 	return nil
 }
 
@@ -258,6 +304,8 @@ func Build(app *Application) *cobra.Command {
 	if app.Memory == nil {
 		app.Memory = makeMemory()
 	}
+
+	app.tablePrintersCache = make(map[io.Writer]*tableprinter.Printer)
 
 	useText := app.Name
 	if strings.LastIndexByte(app.Name, '[') < len(strings.Split(app.Name, " ")[0]) {
