@@ -74,8 +74,9 @@ type Application struct {
 	FriendlyErrors FriendlyErrors
 	Memory         *Memory
 
-	tablePrintersCache map[io.Writer]*tableprinter.Printer
-	tablePrintersMu    sync.RWMutex
+	tablePrintersCache                     map[io.Writer]*tableprinter.Printer
+	tablePrintersMu                        sync.RWMutex
+	TableHeaderBgColor, TableHeaderFgColor string // see `whichColor(string, int) int`
 
 	CobraCommand *cobra.Command // the root command, after "Build" state.
 }
@@ -130,6 +131,14 @@ func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interfac
 		app.tablePrintersMu.Lock()
 		app.tablePrintersCache[out] = printer
 		app.tablePrintersMu.Unlock()
+	}
+
+	if v := app.TableHeaderFgColor; v != "" {
+		printer.HeaderFgColor = whichColor(v, 30)
+	}
+
+	if v := app.TableHeaderBgColor; v != "" {
+		printer.HeaderBgColor = whichColor(v, 40)
 	}
 
 	// This will try to append a struct-only as a row
@@ -327,12 +336,16 @@ func Build(app *Application) *cobra.Command {
 		SuggestionsMinimumDistance: 1,
 	}
 
+	fs := rootCmd.PersistentFlags()
+
 	app.MachineFriendly = new(bool)
 	if !app.DisableOutputFormatController {
-		RegisterMachineFriendlyFlagTo(rootCmd.PersistentFlags(), app.MachineFriendly)
+		RegisterMachineFriendlyFlagTo(fs, app.MachineFriendly)
+
+		fs.StringVar(&app.TableHeaderFgColor, "header-fgcolor", "", "--header-fgcolor=black")
+		fs.StringVar(&app.TableHeaderBgColor, "header-bgcolor", "", "--header-bgcolor=white")
 	}
 
-	fs := rootCmd.PersistentFlags()
 	if app.PersistentFlags != nil {
 		app.PersistentFlags(fs)
 	}

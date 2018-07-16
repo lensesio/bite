@@ -177,3 +177,34 @@ func (f FlagVar) Set(v string) error {
 func (f FlagVar) Type() string {
 	return f.value.Elem().Kind().String() // reflect/type.go#605
 }
+
+func whichColor(v string, base int) (intValue int) {
+	switch strings.ToLower(v) {
+	case "black":
+		intValue = base
+	case "red":
+		intValue = base + 1
+	case "green":
+		intValue = base + 2
+	case "yellow":
+		intValue = base + 3
+	case "blue":
+		intValue = base + 4
+	case "magenta":
+		intValue = base + 5
+	case "cyan":
+		intValue = base + 6
+	case "white":
+		intValue = base + 7
+	}
+
+	if intValue < 30 {
+		var err error
+		intValue, err = strconv.Atoi(v)
+		if err != nil {
+			return 0
+		}
+	}
+
+	return
+}
