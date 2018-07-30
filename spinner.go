@@ -88,11 +88,12 @@ func ExecuteWithSpinner(cmd *cobra.Command) error {
 		// the "magic" with it is that this flag is not registered (on commands) or be visible (on help) until it's actually used.
 		skipSpinner := a == "--no-spinner"
 		switch a {
-		case "help", "--help", "-h", "--version":
+		case "help", "--help", "-h", "version", "--version":
 			skipSpinner = true
 		}
+
 		if skipSpinner {
-			_ = cmd.PersistentFlags().Bool("no-spinner", true, "disable the spinner")
+			_ = cmd.PersistentFlags().Bool("no-spinner", false, "disable the spinner")
 
 			// if disabled, run the command's `Execute` as soon as possible.
 			return cmd.Execute()
@@ -106,7 +107,7 @@ func ExecuteWithSpinner(cmd *cobra.Command) error {
 		spinner: spin,
 	})
 
-	spin.TryStart(1 * time.Second)
+	spin.TryStart(3 * time.Second)
 
 	err := cmd.Execute()
 	spin.Stop()

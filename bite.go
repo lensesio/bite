@@ -388,6 +388,25 @@ func Build(app *Application) *cobra.Command {
 		}
 	}
 
+	if versionName := "version"; app.GetCommand(versionName) == nil {
+		rootCmd.AddCommand(&cobra.Command{
+			Use:           versionName,
+			Short:         "Print the current version of " + app.Name,
+			Example:       versionName,
+			SilenceErrors: true,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				// cobra's "tmpl" func is not exported, so we can't use it.
+				// Therefore add the --version flag on the root command and let it to its job.
+				if def, _ := cmd.Flags().GetBool(versionName); !def {
+					rootCmd.SetArgs([]string{"--" + versionName})
+					rootCmd.Execute()
+				}
+
+				return nil
+			},
+		})
+	}
+
 	app.currentCommand = rootCmd
 	app.CobraCommand = rootCmd
 
