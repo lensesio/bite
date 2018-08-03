@@ -9,8 +9,6 @@ import (
 
 type Error interface {
 	Code() int
-	Message() string
-	Error() string
 }
 
 type FriendlyErrors map[int]string
