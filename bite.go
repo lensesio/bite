@@ -100,7 +100,7 @@ func (app *Application) PrintObject(v interface{}) error {
 // func (app *Application) writeObject(out io.Writer, v interface{}, tableOnlyFilters ...interface{}) error {
 // 	machineFriendlyFlagValue := GetMachineFriendlyFlag(app.CobraCommand)
 // 	if machineFriendlyFlagValue {
-// 		prettyFlagValue := !GetJSONNoPrettyFlag(app.currentCommand)
+// 		prettyFlagValue := !GetJSONPrettyFlag(app.currentCommand)
 // 		jmesQueryPathFlagValue := GetJSONQueryFlag(app.currentCommand)
 // 		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
 // 	}
@@ -113,7 +113,7 @@ func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interfac
 	out := cmd.OutOrStdout()
 	outputFlagValue := GetOutPutFlag(cmd)
 	if strings.ToUpper(outputFlagValue) == "JSON" {
-		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
+		prettyFlagValue := GetJSONPrettyFlag(cmd)
 		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
 		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
 	} else if strings.ToUpper(outputFlagValue) == "YAML" {
@@ -159,7 +159,7 @@ func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interfac
 			// It should be avoided, manual `header` tagging is required; otherwise the table's cells may be larger than expected due of picking all json-tagged properties.
 			//
 			// If nothing printed, try load all it as json and print all of its keys(as headers) and rows(values) as a table using the printer's `PrintJSON`.
-			prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
+			prettyFlagValue := GetJSONPrettyFlag(cmd)
 			jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
 			rawJSON, err := MarshalJSON(v, prettyFlagValue, jmesQuery(jmesQueryPathFlagValue, v))
 			if err != nil {
@@ -432,7 +432,7 @@ func GetOutPutFlag(cmd *cobra.Command) string {
 }
 
 func RegisterOutPutFlagTo(set *pflag.FlagSet, ptr *string) {
-	set.StringVar(ptr, outputFlagKey, "table", "--"+outputFlagKey+"=yaml TABLE (default), JSON or YAML results and hide all the info messages")
+	set.StringVar(ptr, outputFlagKey, "table", "--"+outputFlagKey+"=yaml TABLE JSON or YAML results and hide all the info messages")
 }
 
 func RegisterOutPutFlag(cmd *cobra.Command, ptr *string) {

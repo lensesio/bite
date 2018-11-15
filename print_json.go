@@ -28,7 +28,7 @@ const (
 	// Defaults to false.
 	// It's not a global flag, but it's a common one, all commands that return results
 	// use that via command flag binding.
-	jsonNoPrettyFlagKey = "no-pretty"
+	jsonPrettyFlagKey = "pretty"
 	// jsonQueryFlagKey query to further filter any results, if any.
 	// It's not a global flag, but it's a common one, all commands that return results
 	// set that via command flag binding.
@@ -40,8 +40,8 @@ const (
 // 	return b
 // }
 
-func GetJSONNoPrettyFlag(cmd *cobra.Command) bool {
-	b, _ := cmd.Flags().GetBool(jsonNoPrettyFlagKey)
+func GetJSONPrettyFlag(cmd *cobra.Command) bool {
+	b, _ := cmd.Flags().GetBool(jsonPrettyFlagKey)
 	return b
 }
 
@@ -52,8 +52,8 @@ func GetJSONQueryFlag(cmd *cobra.Command) string {
 
 var JSONFlagSet = NewFlagSet("flagset.json", func(flags *pflag.FlagSet) {
 	// flags.Bool(jsonFlagKey, false, "enable the JSON output of commands (default false).")
-	flags.Bool(jsonNoPrettyFlagKey, false, "disable the pretty format for JSON output of commands (default false).")
-	flags.StringP(jsonQueryFlagKey, string(jsonQueryFlagKey[0]), "", "a jmespath query expression. This allows for querying the JSON output of commands")
+	flags.Bool(jsonPrettyFlagKey, false, "--pretty enable the pretty format for JSON output of commands (default false).")
+	flags.StringP(jsonQueryFlagKey, string(jsonQueryFlagKey[0]), "", "--query a jmespath query expression. This allows for querying the JSON output of commands")
 })
 
 func CanPrintJSON(cmd *cobra.Command) {
@@ -61,7 +61,7 @@ func CanPrintJSON(cmd *cobra.Command) {
 }
 
 func PrintJSON(cmd *cobra.Command, v interface{}) error {
-	pretty := !GetJSONNoPrettyFlag(cmd)
+	pretty := GetJSONPrettyFlag(cmd)
 	jmespathQuery := GetJSONQueryFlag(cmd)
 	return WriteJSON(cmd.OutOrStdout(), v, pretty, jmespathQuery)
 }
