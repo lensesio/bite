@@ -58,12 +58,11 @@ type Application struct {
 	Long        string
 
 	HelpTemplate fmt.Stringer
-	// ShowSpinner if true(default is false) and machine-friendly is false(default is true) then
+	// ShowSpinner if true(default is false) then
 	// it waits via "visual" spinning before each command's job done.
-	ShowSpinner bool
-	// if true then the --machine-friendly flag will be added to the application and PrintObject will check for that.
+	ShowSpinner                   bool
 	DisableOutputFormatController bool
-	MachineFriendly               *bool
+	OutPut                        *string
 	PersistentFlags               func(*pflag.FlagSet)
 
 	Setup          CobraRunner
@@ -112,61 +111,64 @@ func (app *Application) PrintObject(v interface{}) error {
 
 func PrintObject(cmd *cobra.Command, v interface{}, tableOnlyFilters ...interface{}) error {
 	out := cmd.OutOrStdout()
-	machineFriendlyFlagValue := GetMachineFriendlyFlag(cmd)
-	if machineFriendlyFlagValue {
+	outputFlagValue := GetOutPutFlag(cmd)
+	if strings.ToUpper(outputFlagValue) == "JSON" {
 		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
 		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
 		return WriteJSON(out, v, prettyFlagValue, jmesQueryPathFlagValue)
-	}
+	} else if strings.ToUpper(outputFlagValue) == "YAML" {
+		return WriteYAML(out, v)
+	} else {
+		app := Get(cmd)
+		// normally the io.Writer is one, so the tableprinter; the app(it's io.Writer: cmd -> root command's output -> run(w io.Writer) -> app.Write)
+		// but it can be changed manually before this call, so make a check to have only one talbeprinter instance per those writers.
+		app.tablePrintersMu.RLock()
+		printer, ok := app.tablePrintersCache[out]
+		app.tablePrintersMu.RUnlock()
+		if !ok {
+			// register it.
+			printer = tableprinter.New(out)
+			app.tablePrintersMu.Lock()
+			app.tablePrintersCache[out] = printer
+			app.tablePrintersMu.Unlock()
+		}
 
-	app := Get(cmd)
-	// normally the io.Writer is one, so the tableprinter; the app(it's io.Writer: cmd -> root command's output -> run(w io.Writer) -> app.Write)
-	// but it can be changed manually before this call, so make a check to have only one talbeprinter instance per those writers.
-	app.tablePrintersMu.RLock()
-	printer, ok := app.tablePrintersCache[out]
-	app.tablePrintersMu.RUnlock()
-	if !ok {
-		// register it.
-		printer = tableprinter.New(out)
-		app.tablePrintersMu.Lock()
-		app.tablePrintersCache[out] = printer
-		app.tablePrintersMu.Unlock()
-	}
+		if v := app.TableHeaderFgColor; v != "" {
+			printer.HeaderFgColor = whichColor(v, 30)
+		}
 
-	if v := app.TableHeaderFgColor; v != "" {
-		printer.HeaderFgColor = whichColor(v, 30)
-	}
+		if v := app.TableHeaderBgColor; v != "" {
+			printer.HeaderBgColor = whichColor(v, 40)
+		}
 
-	if v := app.TableHeaderBgColor; v != "" {
-		printer.HeaderBgColor = whichColor(v, 40)
-	}
+		// This will try to append a struct-only as a row
+		// for same writer (see above) and the headers cache contains this struct's header-tag fields(;printed at least one time before (see StructHeaders[typ])).
+		typ := indirectType(reflect.TypeOf(v))
+		if typ.Kind() == reflect.Struct {
+			if len(tableprinter.StructHeaders[typ]) > 0 {
+				row, nums := tableprinter.StructParser.ParseRow(indirectValue(reflect.ValueOf(v)))
+				printer.RenderRow(row, nums)
+				return nil
+			}
+		}
 
-	// This will try to append a struct-only as a row
-	// for same writer (see above) and the headers cache contains this struct's header-tag fields(;printed at least one time before (see StructHeaders[typ])).
-	typ := indirectType(reflect.TypeOf(v))
-	if typ.Kind() == reflect.Struct {
-		if len(tableprinter.StructHeaders[typ]) > 0 {
-			row, nums := tableprinter.StructParser.ParseRow(indirectValue(reflect.ValueOf(v)))
-			printer.RenderRow(row, nums)
+		rowsLengthPrinted := printer.Print(v, tableOnlyFilters...)
+		if rowsLengthPrinted == -1 { // means we can't print.
+			// This makes sure that all content, even if json-only tagged will be printed as table, even if not specified as table-ready,
+			// it shouldn't happen but keep it for any case, it's better to show something instead of nothing if there is actually something to be shown here.
+			// It should be avoided, manual `header` tagging is required; otherwise the table's cells may be larger than expected due of picking all json-tagged properties.
+			//
+			// If nothing printed, try load all it as json and print all of its keys(as headers) and rows(values) as a table using the printer's `PrintJSON`.
+			prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
+			jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
+			rawJSON, err := MarshalJSON(v, prettyFlagValue, jmesQuery(jmesQueryPathFlagValue, v))
+			if err != nil {
+				return err
+			}
+
+			printer.PrintJSON(rawJSON, tableOnlyFilters)
 			return nil
 		}
-	}
-
-	rowsLengthPrinted := printer.Print(v, tableOnlyFilters...)
-	if rowsLengthPrinted == -1 { // means we can't print.
-		// This makes sure that all content, even if json-only tagged will be printed as table, even if not specified as table-ready,
-		// it shouldn't happen but keep it for any case, it's better to show something instead of nothing if there is actually something to be shown here.
-		// It should be avoided, manual `header` tagging is required; otherwise the table's cells may be larger than expected due of picking all json-tagged properties.
-		//
-		// If nothing printed, try load all it as json and print all of its keys(as headers) and rows(values) as a table using the printer's `PrintJSON`.
-		prettyFlagValue := !GetJSONNoPrettyFlag(cmd)
-		jmesQueryPathFlagValue := GetJSONQueryFlag(cmd)
-		rawJSON, err := MarshalJSON(v, prettyFlagValue, jmesQuery(jmesQueryPathFlagValue, v))
-		if err != nil {
-			return err
-		}
-		printer.PrintJSON(rawJSON, tableOnlyFilters)
-		return nil
 	}
 
 	return nil
@@ -209,7 +211,7 @@ func (app *Application) Run(output io.Writer, args []string) error {
 
 	app.commands = nil
 
-	if app.ShowSpinner && !*app.MachineFriendly {
+	if app.ShowSpinner {
 		return ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
 	}
 
@@ -338,9 +340,9 @@ func Build(app *Application) *cobra.Command {
 
 	fs := rootCmd.PersistentFlags()
 
-	app.MachineFriendly = new(bool)
+	app.OutPut = new(string)
 	if !app.DisableOutputFormatController {
-		RegisterMachineFriendlyFlagTo(fs, app.MachineFriendly)
+		RegisterOutPutFlagTo(fs, app.OutPut)
 
 		fs.StringVar(&app.TableHeaderFgColor, "header-fgcolor", "", "--header-fgcolor=black")
 		fs.StringVar(&app.TableHeaderBgColor, "header-bgcolor", "", "--header-bgcolor=white")
@@ -414,28 +416,27 @@ func Build(app *Application) *cobra.Command {
 	return rootCmd
 }
 
-const machineFriendlyFlagKey = "machine-friendly"
+const outputFlagKey = "output"
 
-func GetMachineFriendlyFlagFrom(set *pflag.FlagSet) bool {
-	b, _ := set.GetBool(machineFriendlyFlagKey)
+func GetOutPutFlagKey() string {
+	return outputFlagKey
+}
+
+func GetOutPutFlagFrom(set *pflag.FlagSet) string {
+	b, _ := set.GetString(outputFlagKey)
 	return b
 }
 
-func GetMachineFriendlyFlag(cmd *cobra.Command) bool {
-	return GetMachineFriendlyFlagFrom(cmd.Flags())
+func GetOutPutFlag(cmd *cobra.Command) string {
+	return GetOutPutFlagFrom(cmd.Flags())
 }
 
-func RegisterMachineFriendlyFlagTo(set *pflag.FlagSet, ptr *bool) {
-	if !GetMachineFriendlyFlagFrom(set) {
-		if ptr == nil {
-			ptr = new(bool)
-		}
-		set.BoolVar(ptr, machineFriendlyFlagKey, false, "--"+machineFriendlyFlagKey+" to output JSON results and hide all the info messages")
-	}
+func RegisterOutPutFlagTo(set *pflag.FlagSet, ptr *string) {
+	set.StringVar(ptr, outputFlagKey, "table", "--"+outputFlagKey+"=yaml TABLE (default), JSON or YAML results and hide all the info messages")
 }
 
-func RegisterMachineFriendlyFlag(cmd *cobra.Command, ptr *bool) {
-	RegisterMachineFriendlyFlagTo(cmd.Flags(), ptr)
+func RegisterOutPutFlag(cmd *cobra.Command, ptr *string) {
+	RegisterOutPutFlagTo(cmd.Flags(), ptr)
 }
 
 type ApplicationBuilder struct {

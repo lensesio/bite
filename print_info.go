@@ -52,9 +52,15 @@ func HasSilentFlag(cmd *cobra.Command) bool {
 	return HasFlag(cmd, silentFlagKey)
 }
 
-// ExpectsFeedback returns true if the "cmd" command's `--silent` flag is registered and it's true, or the `--machine-friendly` is false.
+// ExpectsFeedback returns true if the "cmd" command's `--silent` flag is registered and it's true, or the `--output` is table.
 func ExpectsFeedback(cmd *cobra.Command) bool {
-	canPrintInfo := !GetMachineFriendlyFlag(cmd)
+	output := GetOutPutFlag(cmd)
+	canPrintInfo := false
+
+	if (strings.ToUpper(output) == "TABLE") {
+		canPrintInfo = true
+	}
+
 	if HasSilentFlag(cmd) {
 		canPrintInfo = !GetSilentFlag(cmd)
 	}

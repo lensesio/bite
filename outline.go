@@ -1,6 +1,7 @@
 package bite
 
 import (
+	"strings"
 	"reflect"
 
 	"github.com/spf13/cobra"
@@ -39,7 +40,7 @@ func makeDynamicSingleTableItem(header string, item interface{}) interface{} {
 func OutlineStringResults(cmd *cobra.Command, key string, entries []string) (items []interface{}) { // why not? (items []map[string]string) because jmespath can't work with it, only with []interface.
 	// key = strings.Title(key)
 
-	if GetMachineFriendlyFlag(cmd) {
+	if strings.ToUpper(GetOutPutFlag(cmd)) == "JSON" {
 		// prepare as JSON.
 		for _, entry := range entries {
 			items = append(items, map[string]string{key: entry})
@@ -64,7 +65,7 @@ func OutlineStringResults(cmd *cobra.Command, key string, entries []string) (ite
 func OutlineIntResults(cmd *cobra.Command, key string, entries []int) (items []interface{}) {
 	// key = strings.Title(key)
 
-	if GetMachineFriendlyFlag(cmd) {
+	if strings.ToUpper(GetOutPutFlag(cmd)) == "JSON" {
 		// prepare as JSON.
 		for _, entry := range entries {
 			items = append(items, map[string]int{key: entry})
