@@ -116,7 +116,7 @@ func ShouldTryLoadFile(cmd *cobra.Command, outPtr interface{}) *FileLoader {
 //
 // It just prints a message to the user that we load from file, so we ignore the flags.
 func LoadFile(cmd *cobra.Command, path string, outPtr interface{}) error {
-	if err := PrintInfo(cmd, "Loading from file '%s', ignore flags", path); err != nil {
+	if err := PrintInfo(cmd, "Loading from file '%s'", path); err != nil {
 		return err
 	}
 
