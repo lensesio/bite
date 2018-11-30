@@ -80,6 +80,10 @@ type Application struct {
 	CobraCommand *cobra.Command // the root command, after "Build" state.
 }
 
+func (app *Application) ClearPrintCache() {
+	app.tablePrintersCache = make(map[io.Writer]*tableprinter.Printer)
+}
+
 func (app *Application) Print(format string, args ...interface{}) error {
 	if !strings.HasSuffix(format, "\n") {
 		format += "\r\n" // add a new line.
