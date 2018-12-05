@@ -348,8 +348,8 @@ func Build(app *Application) *cobra.Command {
 	if !app.DisableOutputFormatController {
 		RegisterOutPutFlagTo(fs, app.OutPut)
 
-		fs.StringVar(&app.TableHeaderFgColor, "header-fgcolor", "", "--header-fgcolor=black")
-		fs.StringVar(&app.TableHeaderBgColor, "header-bgcolor", "", "--header-bgcolor=white")
+		fs.StringVar(&app.TableHeaderFgColor, "header-fgcolor", "", "Table headers forground gcolor=black")
+		fs.StringVar(&app.TableHeaderBgColor, "header-bgcolor", "", "Table headers background gcolor=white")
 	}
 
 	if app.PersistentFlags != nil {
