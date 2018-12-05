@@ -53,7 +53,7 @@ func GetJSONQueryFlag(cmd *cobra.Command) string {
 var JSONFlagSet = NewFlagSet("flagset.json", func(flags *pflag.FlagSet) {
 	// flags.Bool(jsonFlagKey, false, "enable the JSON output of commands (default false).")
 	flags.Bool(jsonPrettyFlagKey, false, "Enable the pretty format for JSON output of commands (default false).")
-	flags.StringP(jsonQueryFlagKey, string(jsonQueryFlagKey[0]), "", "--query a jmespath query expression. This allows for querying the JSON output of commands")
+	flags.StringP(jsonQueryFlagKey, string(jsonQueryFlagKey[0]), "", "Jmespath query expression. This allows for querying the JSON output of commands")
 })
 
 func CanPrintJSON(cmd *cobra.Command) {

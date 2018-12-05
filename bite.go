@@ -436,7 +436,7 @@ func GetOutPutFlag(cmd *cobra.Command) string {
 }
 
 func RegisterOutPutFlagTo(set *pflag.FlagSet, ptr *string) {
-	set.StringVar(ptr, outputFlagKey, "table", "--"+outputFlagKey+"=yaml TABLE JSON or YAML results and hide all the info messages")
+	set.StringVar(ptr, outputFlagKey, "table", "TABLE, JSON or YAML results and hide all the info messages")
 }
 
 func RegisterOutPutFlag(cmd *cobra.Command, ptr *string) {
