@@ -207,8 +207,7 @@ func newBashCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
 
 	To configure your bash shell to load completions for each session add to your bashrc
 
-	# ~/.bashrc or ~/.profile
-	. <(lenses-cli completion)
+	echo "source <(lenses-cli completion bash)" >> ~/.bashrc
 	`,
 		Run: func(cmd *cobra.Command, args []string) {
 			rootCmd.GenBashCompletion(os.Stdout);
