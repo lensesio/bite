@@ -78,6 +78,7 @@ type Application struct {
 	TableHeaderBgColor, TableHeaderFgColor string // see `whichColor(string, int) int`
 
 	CobraCommand *cobra.Command // the root command, after "Build" state.
+
 }
 
 func (app *Application) ClearPrintCache() {
@@ -196,6 +197,27 @@ func (app *Application) AddCommand(cmd *cobra.Command) {
 	}
 }
 
+func newBashCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "completion",
+		Short: "Generates bash completion scripts",
+		Long: `To load completion run
+
+	. <(lenses-cli completion)
+
+	To configure your bash shell to load completions for each session add to your bashrc
+
+	# ~/.bashrc or ~/.profile
+	. <(lenses-cli completion)
+	`,
+		Run: func(cmd *cobra.Command, args []string) {
+			rootCmd.GenBashCompletion(os.Stdout);
+			
+		},	
+	}
+	return cmd
+}
+
 func (app *Application) Run(output io.Writer, args []string) error {
 	rand.Seed(time.Now().UTC().UnixNano()) // <3
 
@@ -218,6 +240,8 @@ func (app *Application) Run(output io.Writer, args []string) error {
 	if app.ShowSpinner {
 		return ackError(app.FriendlyErrors, ExecuteWithSpinner(rootCmd))
 	}
+
+	app.AddCommand(newBashCompletionCommand(rootCmd))
 
 	return ackError(app.FriendlyErrors, rootCmd.Execute())
 }
@@ -345,6 +369,8 @@ func Build(app *Application) *cobra.Command {
 	fs := rootCmd.PersistentFlags()
 
 	app.OutPut = new(string)
+
+	fmt.Sprintf("HEEEEEERREEEEE flag is [%v] ", app.DisableOutputFormatController)
 	if !app.DisableOutputFormatController {
 		RegisterOutPutFlagTo(fs, app.OutPut)
 
