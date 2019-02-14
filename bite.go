@@ -19,8 +19,10 @@ import (
 )
 
 type HelpTemplate struct {
+	Name				 string	
 	BuildTime            string
 	BuildRevision        string
+	BuildVersion		 string
 	ShowGoRuntimeVersion bool
 
 	Template fmt.Stringer
@@ -40,10 +42,11 @@ func (h HelpTemplate) String() string {
 	n, _ := strconv.ParseInt(h.BuildTime, 10, 64)
 	buildTimeStr := time.Unix(n, 0).Format(time.UnixDate)
 
-	tmpl := `{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version %s" .Version}}` +
+	tmpl := fmt.Sprintf("%s %s", h.Name, h.BuildVersion) +
 		fmt.Sprintf("\n%s\n", buildTitle) +
 		fmt.Sprintf("%s revision %s\n", tab, h.BuildRevision) +
 		fmt.Sprintf("%s datetime %s\n", tab, buildTimeStr)
+
 	if h.ShowGoRuntimeVersion {
 		tmpl += fmt.Sprintf("%s go       %s\n", tab, runtime.Version())
 	}
