@@ -12,17 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/landoop/tableprinter"
+	"github.com/lensesio/tableprinter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type HelpTemplate struct {
-	Name				 string	
+	Name                 string
 	BuildTime            string
 	BuildRevision        string
-	BuildVersion		 string
+	BuildVersion         string
 	ShowGoRuntimeVersion bool
 
 	Template fmt.Stringer
@@ -213,9 +213,9 @@ func newBashCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
 	echo "source <(lenses-cli completion bash)" >> ~/.bashrc
 	`,
 		Run: func(cmd *cobra.Command, args []string) {
-			rootCmd.GenBashCompletion(os.Stdout);
-			
-		},	
+			rootCmd.GenBashCompletion(os.Stdout)
+
+		},
 	}
 	return cmd
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/landoop/bite"
+	"github.com/lensesio/bite"
 )
 
 func ExampleApplicationBuilder() {

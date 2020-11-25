@@ -30,6 +30,6 @@ Example code:
 		}
 	}
 
-Github: https://github.com/Landoop/bite
+Github: https://github.com/lensesio/bite
 */
 package bite

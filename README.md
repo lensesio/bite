@@ -2,14 +2,14 @@
 
 A toolbox for [cobra](https://github.com/spf13/cobra)-based command line applications.
 
-[![build status](https://img.shields.io/travis/Landoop/bite/master.svg?style=flat-square)](https://travis-ci.org/Landoop/bite) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=flat-square)](http://goreportcard.com/report/Landoop/bite)
+[![build status](https://img.shields.io/travis/lensesio/bite/master.svg?style=flat-square)](https://travis-ci.org/lensesio/bite) [![report card](https://img.shields.io/badge/report%20card-a%2B-ff3333.svg?style=flat-square)](http://goreportcard.com/report/lensesio/bite)
 
 ## Installation
 
 The only requirement is the [Go Programming Language](https://golang.org/dl), at least version **1.10**.
 
 ```sh
-$ go get -u github.com/landoop/bite
+$ go get -u github.com/lensesio/bite
 ```
 
 ## Table of Contents
